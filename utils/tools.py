@@ -67,15 +67,16 @@ def to_device(data, device):
 
 
 def log(
-    logger, step=None, losses=None, fig=None, audio=None, sampling_rate=22050, tag=""
+    logger, step=None, losses=None, learning_rate=None, fig=None, audio=None, sampling_rate=16000, tag=""
 ):
     if losses is not None:
         logger.add_scalar("Loss/total_loss", losses[0], step)
         logger.add_scalar("Loss/mel_loss", losses[1], step)
         logger.add_scalar("Loss/mel_postnet_loss", losses[2], step)
-        logger.add_scalar("Loss/pitch_loss", losses[3], step)
-        logger.add_scalar("Loss/energy_loss", losses[4], step)
-        logger.add_scalar("Loss/duration_loss", losses[5], step)
+        logger.add_scalar("learning_rate", learning_rate, step)
+        # logger.add_scalar("Loss/pitch_loss", losses[3], step)
+        # logger.add_scalar("Loss/energy_loss", losses[4], step)
+        # logger.add_scalar("Loss/duration_loss", losses[5], step)
 
     if fig is not None:
         logger.add_figure(tag, fig)

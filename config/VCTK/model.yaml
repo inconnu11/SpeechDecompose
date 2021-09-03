@@ -28,7 +28,16 @@ variance_embedding:
 #   n_style_token: 10
 #   attn_head: 4
 
-multi_speaker: True
+spks:
+  multi_speaker: True
+  use_spk_dvec: True  # for one-shot VC
+  num_speakers: 109
+  spk_embed_dim: 256
+
+styles:
+  multi_styles: False
+  num_styles: 3
+  style_embed_dim: 256
 
 max_seq_len: 1000
 

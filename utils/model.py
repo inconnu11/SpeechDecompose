@@ -5,13 +5,13 @@ import torch
 import numpy as np
 
 import hifigan
-from model import FastSpeech2, ScheduledOptim
+from model import SpeechDecompose, ScheduledOptim
 
 
 def get_model(args, configs, device, train=False):
     (preprocess_config, model_config, train_config) = configs
 
-    model = FastSpeech2(preprocess_config, model_config).to(device)
+    model = SpeechDecompose(preprocess_config, model_config).to(device)
     if args.restore_step:
         ckpt_path = os.path.join(
             train_config["path"]["ckpt_path"],
