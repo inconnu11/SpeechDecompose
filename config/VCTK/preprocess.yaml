@@ -6,6 +6,7 @@ data:
   test_fid_list: "/home/shaunxliu/data/vctk/fidlists/eval_fidlist.txt"
 
   vctk_wav_dir: "/home/v-jiewang/data/VCTK-corpus/VCTK-Corpus/wav16_downsample_trim_topdb30_flatten"
+  raw_path: "./raw_data/VCTK"
   # vctk_spk_dvec_dir: "/home/shaunxliu/data/vctk/GE2E_spkEmbed_step_5805000_perSpk"
   vctk_spk_dvec_dir: "/home/v-jiewang/data/VCTK-corpus/VCTK-Corpus/wav16_downsample_trim_topdb30_d_vector_flatten_12000/"
   wav_file_ext: "wav"
@@ -15,9 +16,9 @@ data:
 
 
 path:
-  corpus_path: "/home/v-jiewang/data/LibriTTS/LibriTTS/train-clean-360"
-  lexicon_path: "lexicon/librispeech-lexicon.txt"
-  raw_path: "./raw_data/LibriTTS"
+  # corpus_path: "/home/v-jiewang/data/LibriTTS/LibriTTS/train-clean-360"
+  # lexicon_path: "lexicon/librispeech-lexicon.txt"
+  # raw_path: "./raw_data/LibriTTS"
   preprocessed_path: "./preprocessed_data/LibriTTS"
 
 preprocessing:
@@ -26,7 +27,7 @@ preprocessing:
     text_cleaners: ["english_cleaners"]
     language: "en"
   audio:
-    sampling_rate: 22050
+    sampling_rate: 16000
     max_wav_value: 32768.0
   stft:
     filter_length: 1024

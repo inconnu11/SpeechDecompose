@@ -16,29 +16,11 @@ import audio as Audio
 class Preprocessor:
     def __init__(self, config):
         self.config = config
-        self.in_dir = config["path"]["raw_path"]
-        self.out_dir = config["path"]["preprocessed_path"]
+        self.in_dir = config["data"]["raw_path"]
+        self.out_dir = config["data"]["preprocessed_path"]
         self.val_size = config["preprocessing"]["val_size"]
         self.sampling_rate = config["preprocessing"]["audio"]["sampling_rate"]
         self.hop_length = config["preprocessing"]["stft"]["hop_length"]
-
-        assert config["preprocessing"]["pitch"]["feature"] in [
-            "phoneme_level",
-            "frame_level",
-        ]
-        assert config["preprocessing"]["energy"]["feature"] in [
-            "phoneme_level",
-            "frame_level",
-        ]
-        self.pitch_phoneme_averaging = (
-            config["preprocessing"]["pitch"]["feature"] == "phoneme_level"
-        )
-        self.energy_phoneme_averaging = (
-            config["preprocessing"]["energy"]["feature"] == "phoneme_level"
-        )
-
-        self.pitch_normalization = config["preprocessing"]["pitch"]["normalization"]
-        self.energy_normalization = config["preprocessing"]["energy"]["normalization"]
 
         self.STFT = Audio.stft.TacotronSTFT(
             config["preprocessing"]["stft"]["filter_length"],
@@ -52,15 +34,10 @@ class Preprocessor:
 
     def build_from_path(self):
         os.makedirs((os.path.join(self.out_dir, "mel")), exist_ok=True)
-        os.makedirs((os.path.join(self.out_dir, "pitch")), exist_ok=True)
-        os.makedirs((os.path.join(self.out_dir, "energy")), exist_ok=True)
-        os.makedirs((os.path.join(self.out_dir, "duration")), exist_ok=True)
 
         print("Processing Data ...")
         out = list()
         n_frames = 0
-        pitch_scaler = StandardScaler()
-        energy_scaler = StandardScaler()
 
         # Compute pitch, energy, duration, and mel-spectrogram
         speakers = {}
