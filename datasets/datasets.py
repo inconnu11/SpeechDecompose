@@ -1,184 +1,180 @@
-import json
-import math
-import os
-
+import torch
 import numpy as np
-from torch.utils.data import Dataset
-
-from text import text_to_sequence
-from utils.tools import pad_1D, pad_2D
+import random
 
 
-class Dataset(Dataset):
+def read_fids(fid_list_f):
+    with open(fid_list_f, 'r') as f:
+        fids = [l.strip().split()[0] for l in f if l.strip()]
+    return fids   
+
+
+
+class OneshotVcDataset(torch.utils.data.Dataset):
     def __init__(
-        self, filename, preprocess_config, train_config, sort=False, drop_last=False
+        self,
+        meta_file: str,
+        vctk_wav_dir: str,
+        vctk_spk_dvec_dir: str,
+        min_max_norm_mel: bool = False,
+        mel_min: float = None,
+        mel_max: float = None,
+        wav_file_ext: str = "wav",
     ):
-        self.dataset_name = preprocess_config["dataset"]
-        self.preprocessed_path = preprocess_config["path"]["preprocessed_path"]
-        self.batch_size = train_config["optimizer"]["batch_size"]
+        self.fid_list = read_fids(meta_file)
+        self.vctk_wav_dir = vctk_wav_dir
+        self.vctk_spk_dvec_dir = vctk_spk_dvec_dir
+        self.wav_file_ext = wav_file_ext
 
-        self.basename, self.speaker, self.text, self.raw_text = self.process_meta(
-            filename
-        )
-        with open(os.path.join(self.preprocessed_path, "speakers.json")) as f:
-            self.speaker_map = json.load(f)
-        self.sort = sort
-        self.drop_last = drop_last
-
+        self.min_max_norm_mel = min_max_norm_mel
+        # if min_max_norm_mel:
+        #     print("[INFO] Min-Max normalize Melspec.")
+        #     assert mel_min is not None
+        #     assert mel_max is not None
+        #     self.mel_max = mel_max
+        #     self.mel_min = mel_min
+        
+        random.seed(1234)
+        random.shuffle(self.fid_list)
+        print(f'[INFO] Got {len(self.fid_list)} samples.')
+        
     def __len__(self):
-        return len(self.text)
-
-    def __getitem__(self, idx):
-        basename = self.basename[idx]
-        speaker = self.speaker[idx]
-        speaker_id = self.speaker_map[speaker]
-        raw_text = self.raw_text[idx]
-        phone = np.array(text_to_sequence(self.text[idx], self.cleaners))
-        mel_path = os.path.join(
-            self.preprocessed_path,
-            "mel",
-            "{}-mel-{}.npy".format(speaker, basename),
-        )
-        mel = np.load(mel_path)
-        pitch_path = os.path.join(
-            self.preprocessed_path,
-            "pitch",
-            "{}-pitch-{}.npy".format(speaker, basename),
-        )
-        pitch = np.load(pitch_path)
-        energy_path = os.path.join(
-            self.preprocessed_path,
-            "energy",
-            "{}-energy-{}.npy".format(speaker, basename),
-        )
-        energy = np.load(energy_path)
-        duration_path = os.path.join(
-            self.preprocessed_path,
-            "duration",
-            "{}-duration-{}.npy".format(speaker, basename),
-        )
-        duration = np.load(duration_path)
-
-        sample = {
-            "id": basename,
-            "speaker": speaker_id,
-            "text": phone,
-            "raw_text": raw_text,
-            "mel": mel,
-            "pitch": pitch,
-            "energy": energy,
-            "duration": duration,
-        }
-
-        return sample
-
-    def process_meta(self, filename):
-        with open(
-            os.path.join(self.preprocessed_path, filename), "r", encoding="utf-8"
-        ) as f:
-            name = []
-            speaker = []
-            text = []
-            raw_text = []
-            for line in f.readlines():
-                n, s, t, r = line.strip("\n").split("|")
-                name.append(n)
-                speaker.append(s)
-                text.append(t)
-                raw_text.append(r)
-            return name, speaker, text, raw_text
-
-    def reprocess(self, data, idxs):
-        ids = [data[idx]["id"] for idx in idxs]
-        speakers = [data[idx]["speaker"] for idx in idxs]
-        mels = [data[idx]["mel"] for idx in idxs]
-        mel_lens = np.array([mel.shape[0] for mel in mels])
-
-        speakers = np.array(speakers)
-        mels = pad_2D(mels)
-
-        return (
-            ids,
-            speakers,
-            mels,
-            mel_lens,
-            max(mel_lens),
-        )
-
-    def collate_fn(self, data):
-        data_size = len(data)
-
-        if self.sort:
-            len_arr = np.array([d["text"].shape[0] for d in data])
-            idx_arr = np.argsort(-len_arr)
+        return len(self.fid_list)
+    
+    def get_spk_dvec(self, fid):
+        spk_name = fid.split("_")[0]
+        if spk_name.startswith("p"):
+            spk_dvec_path = f"{self.vctk_spk_dvec_dir}/{spk_name}.npy"
         else:
-            idx_arr = np.arange(data_size)
+            spk_dvec_path = f"{self.libri_spk_dvec_dir}/{spk_name}.npy"
+        return torch.from_numpy(np.load(spk_dvec_path))
 
-        tail = idx_arr[len(idx_arr) - (len(idx_arr) % self.batch_size) :]
-        idx_arr = idx_arr[: len(idx_arr) - (len(idx_arr) % self.batch_size)]
-        idx_arr = idx_arr.reshape((-1, self.batch_size)).tolist()
-        if not self.drop_last and len(tail) > 0:
-            idx_arr += [tail.tolist()]
+    def __getitem__(self, index):
+        fid = self.fid_list[index]
+        
+        # 1. Load features
+        if fid.startswith("p"):
+            # vctk
+            # ppg = np.load(f"{self.vctk_ppg_dir}/{fid}.{self.ppg_file_ext}")
+            # f0 = np.load(f"{self.vctk_f0_dir}/{fid}.{self.f0_file_ext}")
+            mel = self.compute_mel(f"{self.vctk_wav_dir}/{fid}.{self.wav_file_ext}")
+        else:
+            # libritts
+            ppg = np.load(f"{self.libri_ppg_dir}/{fid}.{self.ppg_file_ext}")
+            f0 = np.load(f"{self.libri_f0_dir}/{fid}.{self.f0_file_ext}")
+            mel = self.compute_mel(f"{self.libri_wav_dir}/{fid}.{self.wav_file_ext}")
+        if self.min_max_norm_mel:
+            mel = self.bin_level_min_max_norm(mel)
+        
+        # f0, ppg, mel = self._adjust_lengths(f0, ppg, mel)
+        spk_dvec = self.get_spk_dvec(fid)
 
-        output = list()
-        for idx in idx_arr:
-            output.append(self.reprocess(data, idx))
+        # 2. Convert f0 to continuous log-f0 and u/v flags
+        # uv, cont_lf0 = get_cont_lf0(f0, 10.0, False)
+        # lf0_uv = np.concatenate([cont_lf0[:, np.newaxis], uv[:, np.newaxis]], axis=1)
 
-        return output
+        # uv, cont_f0 = convert_continuous_f0(f0)
+        # cont_f0 = (cont_f0 - np.amin(cont_f0)) / (np.amax(cont_f0) - np.amin(cont_f0))
+        # lf0_uv = np.concatenate([cont_f0[:, np.newaxis], uv[:, np.newaxis]], axis=1)
+        
+        # 3. Convert numpy array to torch.tensor
+        # ppg = torch.from_numpy(ppg)
+        # lf0_uv = torch.from_numpy(lf0_uv)
+        mel = torch.from_numpy(mel)
+        # return (ppg, lf0_uv, mel, spk_dvec, fid)
+        return (mel, spk_dvec, fid)
+
+    # def check_lengths(self, f0, ppg, mel):
+    #     LEN_THRESH = 10
+    #     assert abs(len(ppg) - len(f0)) <= LEN_THRESH, \
+    #         f"{abs(len(ppg) - len(f0))}"
+    #     assert abs(len(mel) - len(f0)) <= LEN_THRESH, \
+    #         f"{abs(len(mel) - len(f0))}"
+    
+    # def _adjust_lengths(self, f0, ppg, mel):
+    #     self.check_lengths(f0, ppg, mel)
+    #     min_len = min(
+    #         len(f0),
+    #         len(ppg),
+    #         len(mel),
+    #     )
+    #     f0 = f0[:min_len]
+    #     ppg = ppg[:min_len]
+    #     mel = mel[:min_len]
+    #     return f0, ppg, mel
 
 
-if __name__ == "__main__":
-    # Test
-    import torch
-    import yaml
-    from torch.utils.data import DataLoader
-    from utils.utils import to_device
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    preprocess_config = yaml.load(
-        open("./config/LJSpeech/preprocess.yaml", "r"), Loader=yaml.FullLoader
-    )
-    train_config = yaml.load(
-        open("./config/LJSpeech/train.yaml", "r"), Loader=yaml.FullLoader
-    )
+class MultiSpkVcCollate():
+    """Zero-pads model inputs and targets based on number of frames per step
+    """
+    def __init__(self, n_frames_per_step=1, give_uttids=False,
+                 f02ppg_length_ratio=1, use_spk_dvec=False):
+        self.n_frames_per_step = n_frames_per_step
+        self.give_uttids = give_uttids
+        self.f02ppg_length_ratio = f02ppg_length_ratio
+        self.use_spk_dvec = use_spk_dvec
 
-    train_dataset = Dataset(
-        "train.txt", preprocess_config, train_config, sort=True, drop_last=True
-    )
-    val_dataset = Dataset(
-        "val.txt", preprocess_config, train_config, sort=False, drop_last=False
-    )
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=train_config["optimizer"]["batch_size"] * 4,
-        shuffle=True,
-        collate_fn=train_dataset.collate_fn,
-    )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=train_config["optimizer"]["batch_size"],
-        shuffle=False,
-        collate_fn=val_dataset.collate_fn,
-    )
+    def __call__(self, batch):
+        batch_size = len(batch)              
+        # Prepare different features 
+        # ppgs = [x[0] for x in batch]
+        # lf0_uvs = [x[1] for x in batch]
+        mels = [x[2] for x in batch]
+        fids = [x[-1] for x in batch]
+        # if len(batch[0]) == 5:
+        if len(batch[0]) == 3:   # mel, spk_dvec, fid
+            spk_ids = [x[1] for x in batch]
+            if self.use_spk_dvec:
+                # use d-vector
+                spk_ids = torch.stack(spk_ids).float()
+            else:
+                # use one-hot ids
+                spk_ids = torch.LongTensor(spk_ids)
+        # Pad features into chunk
+        # ppg_lengths = [x.shape[0] for x in ppgs]
+        mel_lengths = [x.shape[0] for x in mels]
+        # max_ppg_len = max(ppg_lengths)
+        max_mel_len = max(mel_lengths)
+        if max_mel_len % self.n_frames_per_step != 0:
+            max_mel_len += (self.n_frames_per_step - max_mel_len % self.n_frames_per_step)
+        # ppg_dim = ppgs[0].shape[1]
+        mel_dim = mels[0].shape[1]
+        # ppgs_padded = torch.FloatTensor(batch_size, max_ppg_len, ppg_dim).zero_()
+        mels_padded = torch.FloatTensor(batch_size, max_mel_len, mel_dim).zero_()
+        # lf0_uvs_padded = torch.FloatTensor(batch_size, self.f02ppg_length_ratio * max_ppg_len, 2).zero_()
+        stop_tokens = torch.FloatTensor(batch_size, max_mel_len).zero_()
+        for i in range(batch_size):
+            # cur_ppg_len = ppgs[i].shape[0]
+            cur_mel_len = mels[i].shape[0]
+            # ppgs_padded[i, :cur_ppg_len, :] = ppgs[i]
+            # lf0_uvs_padded[i, :self.f02ppg_length_ratio*cur_ppg_len, :] = lf0_uvs[i]
+            mels_padded[i, :cur_mel_len, :] = mels[i]
+            stop_tokens[i, cur_mel_len-self.n_frames_per_step:] = 1
+        if len(batch[0]) == 3:   # 输入有spk
+            ret_tup = (mels_padded, torch.LongTensor(mel_lengths), spk_ids, stop_tokens)
+            if self.give_uttids:
+                return ret_tup + (fids, )
+            else:
+                return ret_tup
+        else:
+            ret_tup = (mels_padded, torch.LongTensor(mel_lengths), stop_tokens)
+            if self.give_uttids:
+                return ret_tup + (fids, )
+            else:
+                return ret_tup
 
-    n_batch = 0
-    for batchs in train_loader:
-        for batch in batchs:
-            to_device(batch, device)
-            n_batch += 1
-    print(
-        "Training set  with size {} is composed of {} batches.".format(
-            len(train_dataset), n_batch
-        )
-    )
-
-    n_batch = 0
-    for batchs in val_loader:
-        for batch in batchs:
-            to_device(batch, device)
-            n_batch += 1
-    print(
-        "Validation set  with size {} is composed of {} batches.".format(
-            len(val_dataset), n_batch
-        )
-    )
+        # if len(batch[0]) == 3:
+        #     ret_tup = (ppgs_padded, lf0_uvs_padded, mels_padded, torch.LongTensor(ppg_lengths), \
+        #         torch.LongTensor(mel_lengths), spk_ids, stop_tokens)
+        #     if self.give_uttids:
+        #         return ret_tup + (fids, )
+        #     else:
+        #         return ret_tup
+        # else:
+        #     ret_tup = (ppgs_padded, lf0_uvs_padded, mels_padded, torch.LongTensor(ppg_lengths), \
+        #         torch.LongTensor(mel_lengths), stop_tokens)
+        #     if self.give_uttids:
+        #         return ret_tup + (fids, )
+        #     else:
+        #         return ret_tup

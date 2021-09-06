@@ -1,4 +1,18 @@
-dataset: "LibriTTS"
+# dataset: "LibriTTS"
+dataset: "VCTK"
+data:
+  train_fid_list: "/home/shaunxliu/data/vctk/fidlists/train_fidlist.new"
+  validate_fid_list: "/home/shaunxliu/data/vctk/fidlists/dev_fidlist.new"
+  test_fid_list: "/home/shaunxliu/data/vctk/fidlists/eval_fidlist.txt"
+
+  vctk_wav_dir: "/home/v-jiewang/data/VCTK-corpus/VCTK-Corpus/wav16_downsample_trim_topdb30_flatten"
+  # vctk_spk_dvec_dir: "/home/shaunxliu/data/vctk/GE2E_spkEmbed_step_5805000_perSpk"
+  vctk_spk_dvec_dir: "/home/v-jiewang/data/VCTK-corpus/VCTK-Corpus/wav16_downsample_trim_topdb30_d_vector_flatten_12000/"
+  wav_file_ext: "wav"
+  min_max_norm_mel: false
+  # mel_min: -12.0
+  # mel_max: 2.5  
+
 
 path:
   corpus_path: "/home/v-jiewang/data/LibriTTS/LibriTTS/train-clean-360"

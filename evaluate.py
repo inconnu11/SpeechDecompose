@@ -10,7 +10,8 @@ from utils.model import get_model, get_vocoder
 from utils.tools import to_device, log, synth_one_sample
 from model import FastSpeech2Loss
 from dataset import Dataset
-
+from datasets.datasets import OneshotVcDataset
+from model.loss import DisentangleLoss
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -19,23 +20,37 @@ def evaluate(model, step, configs, logger=None, vocoder=None):
     preprocess_config, model_config, train_config = configs
 
     # Get dataset
-    dataset = Dataset(
-        "val.txt", preprocess_config, train_config, sort=False, drop_last=False
-    )
-    batch_size = train_config["optimizer"]["batch_size"]
-    loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        collate_fn=dataset.collate_fn,
+    # evalset = Dataset(
+    #     "val.txt", preprocess_config, train_config, sort=False, drop_last=False
+    # )
+    # batch_size = train_config["optimizer"]["batch_size"]
+    # loader = DataLoader(
+    #     dataset,
+    #     batch_size=batch_size,
+    #     shuffle=False,
+    #     collate_fn=dataset.collate_fn,
+    # )
+
+    validate_set = OneshotVcDataset(
+        meta_file= preprocess_config["data"]["validate_fid_list"],
+        vctk_wav_dir= preprocess_config["data"]["vctk_wav_dir"],
+        vctk_spk_dvec_dir= preprocess_config["data"]["vctk_spk_dvec_dir"],
+        min_max_norm_mel = preprocess_config["data"]["min_max_norm_mel"],
+        mel_min = None,
+        mel_max = None,
+        wav_file_ext = "wav",
     )
 
+
+    validate_loader = DataLoader(validate_set, batch_size=train_config["optimizer"]["batch_size"],
+                                shuffle=False, num_workers=train_config["ddp"]["num_workers"],
+                                collate_fn=validate_set.collate_fn)
     # Get loss function
-    Loss = FastSpeech2Loss(preprocess_config, model_config).to(device)
-
+    # Loss = FastSpeech2Loss(preprocess_config, model_config).to(device)
+    Loss = DisentangleLoss(preprocess_config, model_config).to(device)
     # Evaluation
     loss_sums = [0 for _ in range(6)]
-    for batchs in loader:
+    for batchs in validate_loader:
         for batch in batchs:
             batch = to_device(batch, device)
             with torch.no_grad():
@@ -48,9 +63,9 @@ def evaluate(model, step, configs, logger=None, vocoder=None):
                 for i in range(len(losses)):
                     loss_sums[i] += losses[i].item() * len(batch[0])
 
-    loss_means = [loss_sum / len(dataset) for loss_sum in loss_sums]
+    loss_means = [loss_sum / len(validate_set) for loss_sum in loss_sums]
 
-    message = "Validation Step {}, Total Loss: {:.4f}, Mel Loss: {:.4f}, Mel PostNet Loss: {:.4f}, Pitch Loss: {:.4f}, Energy Loss: {:.4f}, Duration Loss: {:.4f}".format(
+    message = "Validation Step {}, Total Loss: {:.4f}, Mel Loss: {:.4f}, Mel PostNet Loss: {:.4f}".format(
         *([step] + [l for l in loss_means])
     )
 

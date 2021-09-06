@@ -10,6 +10,7 @@ from tqdm import tqdm
 from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from datasets.datasets import OneshotVcDataset
 from utils.model import get_model, get_vocoder, get_param_num
 from utils.tools import to_device, log, synth_one_sample
 # from model import FastSpeech2Loss
@@ -82,7 +83,16 @@ def main(args, configs):
     #     shuffle=True,
     #     collate_fn=dataset.collate_fn,
     # )
-    train_set = VCDataset(hps.Audio.data_dir, hps.Audio.train_meta_file)
+    # train_set = VCDataset(hps.Audio.data_dir, hps.Audio.train_meta_file)
+    train_set = OneshotVcDataset(
+        meta_file= preprocess_config["data"]["train_fid_list"],
+        vctk_wav_dir= preprocess_config["data"]["vctk_wav_dir"],
+        vctk_spk_dvec_dir= preprocess_config["data"]["vctk_spk_dvec_dir"],
+        min_max_norm_mel = preprocess_config["data"]["min_max_norm_mel"],
+        mel_min = None,
+        mel_max = None,
+        wav_file_ext = "wav",
+    )
 
 
     if train_config["ddp"]["distributed_run"]:
@@ -92,7 +102,7 @@ def main(args, configs):
         train_sampler = None
         shuffle = True
 
-    train_dataloader = DataLoader(train_set, batch_size=train_config["optimizer"]["batch_size"], sampler=train_sampler,
+    train_loader = DataLoader(train_set, batch_size=train_config["optimizer"]["batch_size"], sampler=train_sampler,
                                   shuffle=shuffle,
                                   num_workers=train_config["ddp"]["num_workers"],
                                   collate_fn=train_set.collate_fn)
@@ -145,8 +155,8 @@ def main(args, configs):
     while True:
         if train_config["ddp"]["distributed_run"]:
             train_loader.sampler.set_epoch(epoch)        
-        inner_bar = tqdm(total=len(loader), desc="Epoch {}".format(epoch), position=1)
-        for batchs in loader:
+        inner_bar = tqdm(total=len(train_loader), desc="Epoch {}".format(epoch), position=1)
+        for batchs in train_loader:
             for batch in batchs:   # 每一个sample？
                 if is_parallel_model(model):
                     batch = model.module.parse_batch(batch)
