@@ -28,6 +28,10 @@ variance_embedding:
 #   n_style_token: 10
 #   attn_head: 4
 
+decoder:
+  frames_per_step: 2
+
+
 spks:
   multi_speaker: True
   use_spk_dvec: True  # for one-shot VC

@@ -152,13 +152,13 @@ class MultiSpkVcCollate():
             mels_padded[i, :cur_mel_len, :] = mels[i]
             stop_tokens[i, cur_mel_len-self.n_frames_per_step:] = 1
         if len(batch[0]) == 3:   # 输入有spk
-            ret_tup = (mels_padded, torch.LongTensor(mel_lengths), spk_ids, stop_tokens)
+            ret_tup = (mels_padded, torch.LongTensor(mel_lengths), torch.LongTensor(max_mel_len), spk_ids, stop_tokens)
             if self.give_uttids:
                 return ret_tup + (fids, )
             else:
                 return ret_tup
         else:
-            ret_tup = (mels_padded, torch.LongTensor(mel_lengths), stop_tokens)
+            ret_tup = (mels_padded, torch.LongTensor(mel_lengths), torch.LongTensor(max_mel_len), stop_tokens)
             if self.give_uttids:
                 return ret_tup + (fids, )
             else:

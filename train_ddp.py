@@ -163,14 +163,14 @@ def main(args, configs):
                 else:
                     batch = model.parse_batch(batch)                
                 # batch = to_device(batch, device)
-
+                
                 # Forward
                 # output = model(*(batch[2:]))
                 output = model(*(batch))
 
                 # Cal Loss
                 losses = Loss(batch, output)
-                # losses : total_loss, mel_loss, postnet_mel_loss
+                # losses : total_loss, mel_loss, postnet_mel_loss, stop loss
                 total_loss = losses[0]
 
                 # Backward
@@ -206,7 +206,7 @@ def main(args, configs):
                     if step % log_step == 0:
                         losses = [l.item() for l in losses]
                         message1 = "Step {}/{}, ".format(step, total_step)
-                        message2 = "Total Loss: {:.4f}, Mel Loss: {:.4f}, Mel PostNet Loss: {:.4f}".format(
+                        message2 = "Mel Total Loss: {:.4f}, Mel Loss: {:.4f}, Mel PostNet Loss: {:.4f}, Stop Loss: {:.4f}".format(
                             *losses
                         )
 
