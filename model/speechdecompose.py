@@ -72,8 +72,9 @@ class SpeechDecompose(nn.Module):
 
     def forward(self, mel = None, mel_lens = None, max_mel_len=None, spembs = None, styleembs = None):
         B, T, _ = mel.size()
-        content_embs = self.encoder_content(mel)
-        
+        out, mu, log_sigma  = self.encoder_content(mel)
+        eps = log_sigma.new(*log_sigma.size()).normal_(0, 1)
+        content_embs = mu + torch.exp(log_sigma / 2) * eps
         x = content_embs
 
         if self.multi_spk:
@@ -86,6 +87,7 @@ class SpeechDecompose(nn.Module):
             else:
                 spk_embs = torch.nn.functional.normalize(
                     spembs).unsqueeze(1).expand(-1, T, -1)
+            print("spk_embs shape", spk_embs.shape)
             x = torch.cat([content_embs, spk_embs], dim=2)   
 
 
@@ -99,8 +101,8 @@ class SpeechDecompose(nn.Module):
                 style_embs = self.encoder_style(mel)
                 style_embs = torch.nn.functional.normalize(
                         style_embs).unsqueeze(1).expand(-1, T, -1)
+            print("style_embs shape", style_embs.shape)
             x = torch.cat([x, style_embs], dim=2)
-
 
         mel_masks = (
             get_mask_from_lengths(mel_lens, max_mel_len)
@@ -116,5 +118,8 @@ class SpeechDecompose(nn.Module):
             postnet_output,
             mel_masks,
             mel_lens, 
-            predict_stop_token
+            predict_stop_token,
+            mu,
+            log_sigma
         )
+

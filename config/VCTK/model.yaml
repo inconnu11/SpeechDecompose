@@ -1,24 +1,24 @@
-transformer:
-  encoder_layer: 4
-  encoder_head: 2
-  encoder_hidden: 256
-  decoder_layer: 6
-  decoder_head: 2
-  decoder_hidden: 256
-  conv_filter_size: 1024
-  conv_kernel_size: [9, 1]
-  encoder_dropout: 0.2
-  decoder_dropout: 0.2
+# transformer:
+#   encoder_layer: 4
+#   encoder_head: 2
+#   encoder_hidden: 256
+#   decoder_layer: 6
+#   decoder_head: 2
+#   decoder_hidden: 256
+#   conv_filter_size: 1024
+#   conv_kernel_size: [9, 1]
+#   encoder_dropout: 0.2
+#   decoder_dropout: 0.2
 
-variance_predictor:
-  filter_size: 256
-  kernel_size: 3
-  dropout: 0.5
+# variance_predictor:
+#   filter_size: 256
+#   kernel_size: 3
+#   dropout: 0.5
 
-variance_embedding:
-  pitch_quantization: "linear" # support 'linear' or 'log', 'log' is allowed only if the pitch values are not normalized during preprocessing
-  energy_quantization: "linear" # support 'linear' or 'log', 'log' is allowed only if the energy values are not normalized during preprocessing
-  n_bins: 256
+# variance_embedding:
+#   pitch_quantization: "linear" # support 'linear' or 'log', 'log' is allowed only if the pitch values are not normalized during preprocessing
+#   energy_quantization: "linear" # support 'linear' or 'log', 'log' is allowed only if the energy values are not normalized during preprocessing
+#   n_bins: 256
 
 # gst:
 #   use_gst: False
@@ -27,6 +27,19 @@ variance_embedding:
 #   token_size: 128
 #   n_style_token: 10
 #   attn_head: 4
+
+content_encoder:
+  c_in: 512
+  c_h: 128
+  c_out: 128
+  kernel_size: 5
+  bank_size: 8
+  bank_scale: 1
+  c_bank: 128
+  n_conv_blocks: 6
+  subsample: [1, 2, 1, 2, 1, 2]
+  act: 'relu'
+  dropout_rate: 0  
 
 decoder:
   frames_per_step: 2

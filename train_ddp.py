@@ -121,7 +121,7 @@ def main(args, configs):
             model, device_ids=[local_rank], output_device=local_rank,
             find_unused_parameters=True)
     num_param = get_param_num(model)
-    Loss = DisentangleLoss(preprocess_config, model_config).to(device)
+    Loss = DisentangleLoss(preprocess_config, model_config, train_config).to(device)
     print("Number of SpeechDecompose Parameters:", num_param)
 
     # Load vocoder
@@ -169,7 +169,7 @@ def main(args, configs):
                 output = model(*(batch))
 
                 # Cal Loss
-                losses = Loss(batch, output)
+                losses = Loss(batch, output, step)  # step for annealing
                 # losses : total_loss, mel_loss, postnet_mel_loss, stop loss
                 total_loss = losses[0]
 
@@ -206,7 +206,7 @@ def main(args, configs):
                     if step % log_step == 0:
                         losses = [l.item() for l in losses]
                         message1 = "Step {}/{}, ".format(step, total_step)
-                        message2 = "Mel Total Loss: {:.4f}, Mel Loss: {:.4f}, Mel PostNet Loss: {:.4f}, Stop Loss: {:.4f}".format(
+                        message2 = "Total Loss: {:.4f}, Mel Loss: {:.4f}, Mel PostNet Loss: {:.4f}, Content KL Loss: {:.4f}, Content KL lambda :{:.4f}".format(
                             *losses
                         )
 

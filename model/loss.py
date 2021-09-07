@@ -5,7 +5,7 @@ import torch.nn as nn
 class DisentangleLoss(nn.Module):
     """ FastSpeech2 Loss """
 
-    def __init__(self, preprocess_config, model_config):
+    def __init__(self, preprocess_config, model_config, train_config):
         super(DisentangleLoss, self).__init__()
         # self.pitch_feature_level = preprocess_config["preprocessing"]["pitch"][
         #     "feature"
@@ -17,14 +17,15 @@ class DisentangleLoss(nn.Module):
         self.mae_loss = nn.L1Loss()
         self.stop_loss_criterion = nn.BCEWithLogitsLoss(reduction='none') 
         self.frames_per_step =  model_config["decoder"]["frames_per_step"]
+        self.train_config = train_config
 
-    def forward(self, inputs, predictions):
+    def forward(self, inputs, predictions, step):
         # inputs: (mel, mel_lens, max_mel_len, speaker_embeddings)
         (mel_targets, mel_lens, max_mel_len, speaker_embeddings, stop_tokens) = inputs
         # inputs = (mel, mel_lens, max_mel_len, speaker_embeddings, stop_tokens)
         
         # predictions (output, postnet_output,mel_masks, mel_lens) 
-        (mel_predictions, postnet_mel_predictions, mel_masks, mel_lens, predict_stop_token) = predictions
+        (mel_predictions, postnet_mel_predictions, mel_masks, mel_lens, predict_stop_token, mu, log_sigma) = predictions
 
         mel_masks = ~mel_masks
         mel_targets = mel_targets[:, : mel_masks.shape[1], :]
@@ -47,22 +48,27 @@ class DisentangleLoss(nn.Module):
         stop_mask = self.get_mask(stop_lengths, int(mel_targets.size(1)/self.frames_per_step))        
         stop_loss = torch.sum(self.stop_loss_criterion(predict_stop_token, stop_tokens) * stop_mask) / stop_mask.sum()
 
-
+        content_kl_loss = 0.5 * torch.mean(torch.exp(log_sigma) + mu ** 2 - 1 - log_sigma)
+        if step >= self.train_config["lambda"]["annealing_iters"]:
+            lambda_kl = self.train_config['lambda']['lambda_kl']
+        else:
+            lambda_kl = self.train_config['lambda']['lambda_kl'] * (step + 1) / self.train_config["annealing_iters"]     
         ## total loss ##
-        total_loss = (
-            mel_loss + postnet_mel_loss 
-        )
+        mel_total_loss = (mel_loss + postnet_mel_loss)
+
+        total_loss = self.train_config['lambda']['lambda_rec'] * mel_total_loss + lambda_kl * content_kl_loss
+        # total_loss = (
+        #     mel_loss + postnet_mel_loss 
+        # )
 
         # total_loss = (
         #     mel_loss + postnet_mel_loss + stop_loss
-        # )
-        # mel_total_loss = (
-        #      mel_loss + postnet_mel_loss 
         # )
 
         return (
             total_loss,
             mel_loss,
             postnet_mel_loss,
-            stop_loss
+            content_kl_loss,
+            lambda_kl
         )

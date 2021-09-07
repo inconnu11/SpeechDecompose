@@ -12,6 +12,12 @@ optimizer:
   warm_up_step: 4000
   anneal_steps: [300000, 400000, 500000]
   anneal_rate: 0.3
+lambda:
+  lambda_rec: 10
+  lambda_kl: 1
+  annealing_iters: 20000
+
+
 step:
   total_step: 900000
   log_step: 100
