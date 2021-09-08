@@ -15,6 +15,7 @@ optimizer:
 lambda:
   lambda_rec: 10
   lambda_kl: 1
+  lambda_vq: 10
   annealing_iters: 20000
 
 

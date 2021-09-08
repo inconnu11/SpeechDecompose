@@ -25,7 +25,7 @@ class DisentangleLoss(nn.Module):
         # inputs = (mel, mel_lens, max_mel_len, speaker_embeddings, stop_tokens)
         
         # predictions (output, postnet_output,mel_masks, mel_lens) 
-        (mel_predictions, postnet_mel_predictions, mel_masks, mel_lens, predict_stop_token, mu, log_sigma) = predictions
+        (mel_predictions, postnet_mel_predictions, mel_masks, mel_lens, content_vq_loss, mu, log_sigma) = predictions
 
         mel_masks = ~mel_masks
         mel_targets = mel_targets[:, : mel_masks.shape[1], :]
@@ -42,13 +42,13 @@ class DisentangleLoss(nn.Module):
         postnet_mel_loss = self.mae_loss(postnet_mel_predictions, mel_targets)
 
         # stop token loss
-        B = stop_tokens.size(0)
-        stop_tokens = stop_tokens.reshape(B, -1, self.frames_per_step)[:, :, 0]
-        stop_lengths = torch.ceil(mel_lens.float() / self.frames_per_step).long()
-        stop_mask = self.get_mask(stop_lengths, int(mel_targets.size(1)/self.frames_per_step))        
-        stop_loss = torch.sum(self.stop_loss_criterion(predict_stop_token, stop_tokens) * stop_mask) / stop_mask.sum()
+        # B = stop_tokens.size(0)
+        # stop_tokens = stop_tokens.reshape(B, -1, self.frames_per_step)[:, :, 0]
+        # stop_lengths = torch.ceil(mel_lens.float() / self.frames_per_step).long()
+        # stop_mask = self.get_mask(stop_lengths, int(mel_targets.size(1)/self.frames_per_step))        
+        # stop_loss = torch.sum(self.stop_loss_criterion(predict_stop_token, stop_tokens) * stop_mask) / stop_mask.sum()
 
-        content_kl_loss = 0.5 * torch.mean(torch.exp(log_sigma) + mu ** 2 - 1 - log_sigma)
+        style_kl_loss = 0.5 * torch.mean(torch.exp(log_sigma) + mu ** 2 - 1 - log_sigma)
         if step >= self.train_config["lambda"]["annealing_iters"]:
             lambda_kl = self.train_config['lambda']['lambda_kl']
         else:
@@ -56,7 +56,7 @@ class DisentangleLoss(nn.Module):
         ## total loss ##
         mel_total_loss = (mel_loss + postnet_mel_loss)
 
-        total_loss = self.train_config['lambda']['lambda_rec'] * mel_total_loss + lambda_kl * content_kl_loss
+        total_loss = self.train_config['lambda']['lambda_rec'] * mel_total_loss + lambda_kl * style_kl_loss + self.train_config['lambda']['lambda_vq'] * content_vq_loss
         # total_loss = (
         #     mel_loss + postnet_mel_loss 
         # )
@@ -69,6 +69,7 @@ class DisentangleLoss(nn.Module):
             total_loss,
             mel_loss,
             postnet_mel_loss,
-            content_kl_loss,
-            lambda_kl
+            style_kl_loss,
+            lambda_kl, 
+            vq_loss
         )

@@ -40,9 +40,32 @@ content_encoder:
   subsample: [1, 2, 1, 2, 1, 2]
   act: 'relu'
   dropout_rate: 0  
+  VQencoder:
+        in_channels: 80
+        channels: 512
+        n_embeddings: 512
+        z_dim: 64
+        c_dim: 256
+
+style_encoder:
+  c_in: 512
+  c_h: 128
+  c_out: 128
+  kernel_size: 5
+  bank_size: 8
+  bank_scale: 1
+  c_bank: 128
+  n_conv_blocks: 6
+  n_dense_blocks: 6
+  subsample: [1, 2, 1, 2, 1, 2]
+  act: 'relu'
+  dropout_rate: 0
+
+
+
 
 decoder:
-  frames_per_step: 2
+  frames_per_step: 1
 
 
 spks:
