@@ -5,7 +5,7 @@ import random
 
 def read_fids(fid_list_f):
     with open(fid_list_f, 'r') as f:
-        fids = [l.strip().split()[0] for l in f if l.strip()]
+        fids = [l.strip().split('|')[0] for l in f if l.strip()]
     return fids   
 
 
@@ -16,23 +16,27 @@ class OneshotVcDataset(torch.utils.data.Dataset):
         meta_file: str,
         vctk_wav_dir: str,
         vctk_spk_dvec_dir: str,
+        vctk_mel_dir: str,
         min_max_norm_mel: bool = False,
         mel_min: float = None,
         mel_max: float = None,
         wav_file_ext: str = "wav",
+        mel_file_ext: str = "npy",
     ):
         self.fid_list = read_fids(meta_file)
         self.vctk_wav_dir = vctk_wav_dir
+        self.vctk_mel_dir = vctk_mel_dir
         self.vctk_spk_dvec_dir = vctk_spk_dvec_dir
         self.wav_file_ext = wav_file_ext
+        self.mel_file_ext = mel_file_ext
 
         self.min_max_norm_mel = min_max_norm_mel
-        # if min_max_norm_mel:
-        #     print("[INFO] Min-Max normalize Melspec.")
-        #     assert mel_min is not None
-        #     assert mel_max is not None
-        #     self.mel_max = mel_max
-        #     self.mel_min = mel_min
+        if min_max_norm_mel:
+            print("[INFO] Min-Max normalize Melspec.")
+            assert mel_min is not None
+            assert mel_max is not None
+            self.mel_max = mel_max
+            self.mel_min = mel_min
         
         random.seed(1234)
         random.shuffle(self.fid_list)
@@ -42,27 +46,46 @@ class OneshotVcDataset(torch.utils.data.Dataset):
         return len(self.fid_list)
     
     def get_spk_dvec(self, fid):
-        spk_name = fid.split("_")[0]
-        if spk_name.startswith("p"):
-            spk_dvec_path = f"{self.vctk_spk_dvec_dir}/{spk_name}.npy"
+        ################ lsx : one embedding for one speaker? ##########
+        # spk_name = fid.split("_")[0]
+        # if spk_name.startswith("p"):
+        #     spk_dvec_path = f"{self.vctk_spk_dvec_dir}/{spk_name}.npy"
+        # else:
+        #     spk_dvec_path = f"{self.libri_spk_dvec_dir}/{spk_name}.npy"
+        # return torch.from_numpy(np.load(spk_dvec_path))
+        # spk_name = fid.split("_")[0]
+        ################ now : one embedding for one utterance? ##########        
+        if fid.startswith("p"):
+            spk_dvec_path = f"{self.vctk_spk_dvec_dir}/{fid}.npy"
         else:
-            spk_dvec_path = f"{self.libri_spk_dvec_dir}/{spk_name}.npy"
+            spk_dvec_path = f"{self.libri_spk_dvec_dir}/{fid}.npy"
         return torch.from_numpy(np.load(spk_dvec_path))
+
+
+    def bin_level_min_max_norm(self, melspec):
+        # frequency bin level min-max normalization to [-4, 4]
+        mel = (melspec - self.mel_min) / (self.mel_max - self.mel_min) * 8.0 - 4.0
+        return np.clip(mel, -4., 4.)   
 
     def __getitem__(self, index):
         fid = self.fid_list[index]
         
         # 1. Load features
         if fid.startswith("p"):
+            # print("fid", fid)
+            spk_id = fid.split('_')[0]
+            # print("spk_id", spk_id)
             # vctk
             # ppg = np.load(f"{self.vctk_ppg_dir}/{fid}.{self.ppg_file_ext}")
             # f0 = np.load(f"{self.vctk_f0_dir}/{fid}.{self.f0_file_ext}")
-            mel = self.compute_mel(f"{self.vctk_wav_dir}/{fid}.{self.wav_file_ext}")
+            # mel = self.compute_mel(f"{self.vctk_wav_dir}/{fid}.{self.wav_file_ext}")
+            mel = np.load(f"{self.vctk_mel_dir}/{spk_id}-{'mel'}-{fid}.{self.mel_file_ext}")
         else:
             # libritts
             ppg = np.load(f"{self.libri_ppg_dir}/{fid}.{self.ppg_file_ext}")
             f0 = np.load(f"{self.libri_f0_dir}/{fid}.{self.f0_file_ext}")
-            mel = self.compute_mel(f"{self.libri_wav_dir}/{fid}.{self.wav_file_ext}")
+            # mel = self.compute_mel(f"{self.libri_wav_dir}/{fid}.{self.wav_file_ext}")
+            mel = np.load(f"{self.libri_wav_dir}/{fid}.{self.wav_file_ext}")
         if self.min_max_norm_mel:
             mel = self.bin_level_min_max_norm(mel)
         

@@ -8,8 +8,8 @@ from torch.utils.data import DataLoader
 
 from utils.model import get_model, get_vocoder
 from utils.tools import to_device, log, synth_one_sample
-from model import FastSpeech2Loss
-from dataset import Dataset
+# from model import FastSpeech2Loss
+# from dataset import Dataset
 from datasets.datasets import OneshotVcDataset
 from model.loss import DisentangleLoss
 

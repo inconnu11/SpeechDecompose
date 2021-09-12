@@ -9,14 +9,15 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
-
-from datasets.datasets import OneshotVcDataset
+from pprint import pprint
+from datasets.datasets import OneshotVcDataset, MultiSpkVcCollate
 from utils.model import get_model, get_vocoder, get_param_num
 from utils.tools import to_device, log, synth_one_sample
 # from model import FastSpeech2Loss
 from model.loss import DisentangleLoss
-from dataset import Dataset
-
+# from dataset import Dataset
+from utils.dist import ompi_rank, ompi_size, ompi_local_rank, dist_init
+from utils.tools import print_rank
 from evaluate import evaluate
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -87,11 +88,13 @@ def main(args, configs):
     train_set = OneshotVcDataset(
         meta_file= preprocess_config["data"]["train_fid_list"],
         vctk_wav_dir= preprocess_config["data"]["vctk_wav_dir"],
+        vctk_mel_dir= preprocess_config["data"]["vctk_mel_dir"],
         vctk_spk_dvec_dir= preprocess_config["data"]["vctk_spk_dvec_dir"],
         min_max_norm_mel = preprocess_config["data"]["min_max_norm_mel"],
-        mel_min = None,
-        mel_max = None,
-        wav_file_ext = "wav",
+        mel_min = preprocess_config["data"]["mel_min"],
+        mel_max = preprocess_config["data"]["mel_max"],
+        wav_file_ext = preprocess_config["data"]["wav_file_ext"],
+        mel_file_ext = preprocess_config["data"]["mel_file_ext"]
     )
 
 
@@ -105,7 +108,7 @@ def main(args, configs):
     train_loader = DataLoader(train_set, batch_size=train_config["optimizer"]["batch_size"], sampler=train_sampler,
                                   shuffle=shuffle,
                                   num_workers=train_config["ddp"]["num_workers"],
-                                  collate_fn=train_set.collate_fn)
+                                  collate_fn=MultiSpkVcCollate)
 
     # Prepare model
     model, optimizer = get_model(args, configs, device, train=True)
@@ -274,6 +277,7 @@ def main(args, configs):
                     quit()
                 step += 1
                 outer_bar.update(1)
+            
             inner_bar.update(1)
         epoch += 1
 

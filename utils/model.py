@@ -4,9 +4,9 @@ import json
 import torch
 import numpy as np
 
-import hifigan
-from model import SpeechDecompose, ScheduledOptim
-
+# import hifigan
+from model.speechdecompose import SpeechDecompose
+from model.optimizer import ScheduledOptim
 
 def get_model(args, configs, device, train=False):
     (preprocess_config, model_config, train_config) = configs

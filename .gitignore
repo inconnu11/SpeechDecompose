@@ -1,3 +1,5 @@
 *.wav
 *.npy
 *.pyc
+event*
+*.txt

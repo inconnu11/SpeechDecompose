@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # from transformer import Encoder, Decoder, PostNet
-from transformer import PostNet
+from transformer.Layers import PostNet
 from model.encoders import ContentEncoder, StyleEncoder
 from model.decoders import Decoder
 from model.nets_utils import to_gpu
@@ -18,19 +18,23 @@ class SpeechDecompose(nn.Module):
         super(SpeechDecompose, self).__init__()
         self.model_config = model_config
         ##### encoders, decoder #####
-        self.encoder_content = ContentEncoder(model_config)
-        self.encoder_style = StyleEncoder(model_config)
+        self.encoder_content = ContentEncoder(preprocess_config, model_config)
+        self.encoder_style = StyleEncoder(preprocess_config, model_config)
         self.decoder = Decoder(model_config)
+        # self.mel_linear = nn.Linear(
+        #     model_config["transformer"]["decoder_hidden"],
+        #     preprocess_config["preprocessing"]["mel"]["n_mel_channels"],
+        # )
         self.mel_linear = nn.Linear(
-            model_config["transformer"]["decoder_hidden"],
+            model_config["decoder"]["dim_pre"],
             preprocess_config["preprocessing"]["mel"]["n_mel_channels"],
-        )
+        )        
         self.postnet = PostNet()
         ##### encoders, decoder #####
-        self.multi_spk = self.model_config["spk"]["multi_spk"]
-        self.use_spk_dvec = self.model_config["spk"]["use_spk_dvec"]
-        self.num_speakers = self.model_config["spk"]["num_speakers"]
-        self.spk_embed_dim = self.model_config["spk"]["spk_embed_dim"]
+        self.multi_spk = self.model_config["spks"]["multi_speaker"]
+        self.use_spk_dvec = self.model_config["spks"]["use_spk_dvec"]
+        self.num_speakers = self.model_config["spks"]["num_speakers"]
+        self.spk_embed_dim = self.model_config["spks"]["spk_embed_dim"]
         self.multi_styles = self.model_config["styles"]["multi_styles"]
         self.num_styles = self.model_config["styles"]["num_styles"]
         self.style_embed_dim = self.model_config["styles"]["style_embed_dim"]

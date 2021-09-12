@@ -30,6 +30,8 @@ ddp:
   seed: 1234
   num_workers: 16
   fp16_run: False
+  cudnn_enabled: True
+  cudnn_benchmark: True
   
   
 

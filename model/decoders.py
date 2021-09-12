@@ -44,27 +44,37 @@ class Decoder(nn.Module):
     """
     def __init__(self, model_config):
         super(Decoder, self).__init__()
-        dim_content=64, dim_style=1, dim_spk=256, dim_pre=512
+        self.dim_content = model_config["decoder"]["dim_content"]
+        self.dim_style = model_config["decoder"]["dim_style"]
+        self.dim_spk = model_config["spks"]["spk_embed_dim"]
+        self.dim_pre = model_config["decoder"]["dim_pre"]
+        self.n_lstm_layers = model_config["decoder"]["n_lstm_layers"]
+        self.lstm1 = nn.LSTM(self.dim_content + self.dim_style + self.dim_spk, self.dim_pre, 1, batch_first=True)
         
-        self.lstm1 = nn.LSTM(dim_content + dim_style + dim_spk, dim_pre, 1, batch_first=True)
-        
+        self.act = model_config["decoder"]["act"]   #'relu'
+        self.kernel_size= model_config["decoder"]["kernel_size"]
+        self.stride= model_config["decoder"]["stride"]
+        self.padding= model_config["decoder"]["padding"]
+        self.dilation= model_config["decoder"]["dilation"]
+
         convolutions = []
         for i in range(3):
             conv_layer = nn.Sequential(
-                ConvNorm(dim_pre,
-                         dim_pre,
-                         kernel_size=5, stride=1,
-                         padding=2,
-                         dilation=1, w_init_gain='relu'),
-                nn.BatchNorm1d(dim_pre))
+                ConvNorm(self.dim_pre,
+                         self.dim_pre,
+                         kernel_size = self.kernel_size, 
+                         stride = self.stride,
+                         padding = self.padding,
+                         dilation = self.dilation, w_init_gain=self.act),
+                nn.BatchNorm1d(self.dim_pre))
             convolutions.append(conv_layer)
         self.convolutions = nn.ModuleList(convolutions)
         
-        self.lstm2 = nn.LSTM(dim_pre, 1024, 2, batch_first=True)
+        self.lstm2 = nn.LSTM(self.dim_pre, 1024, 2, batch_first=True)
         
         self.linear_projection = LinearNorm(1024, 80)
 
-        self.max_seq_len = config["max_seq_len"]
+        self.max_seq_len = model_config["max_seq_len"]
 
     def forward(self, x, mel_masks):
         

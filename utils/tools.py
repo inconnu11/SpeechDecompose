@@ -1,6 +1,7 @@
 import os
 import json
-
+import time
+import logging
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -13,6 +14,15 @@ matplotlib.use("Agg")
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def print_rank(str):
+    # time_stamp = datetime.datetime.now().strftime("%I %M %p %B %d %Y")
+    # str = "{} | rank {}: {}".format(time.ctime(), dist.rank(), str)
+    str = "{} : {}".format(time.ctime(), str)
+    # print to log
+    logging.info(str)
+    # print to stdout
+    print(str, flush=True)
 
 
 def to_device(data, device):

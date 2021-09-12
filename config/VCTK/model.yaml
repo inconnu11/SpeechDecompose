@@ -4,7 +4,7 @@
 #   encoder_hidden: 256
 #   decoder_layer: 6
 #   decoder_head: 2
-#   decoder_hidden: 256
+  # decoder_hidden: 256
 #   conv_filter_size: 1024
 #   conv_kernel_size: [9, 1]
 #   encoder_dropout: 0.2
@@ -27,7 +27,7 @@
 #   token_size: 128
 #   n_style_token: 10
 #   attn_head: 4
-
+max_seq_len: 1000
 content_encoder:
   c_in: 512
   c_h: 128
@@ -61,12 +61,17 @@ style_encoder:
   act: 'relu'
   dropout_rate: 0
 
-
-
-
 decoder:
   frames_per_step: 1
-
+  dim_content: 64
+  dim_style: 32
+  dim_pre: 512
+  n_lstm_layers: 3
+  act: 'relu'
+  kernel_size: 5
+  stride: 1
+  padding: 2
+  dilation: 1
 
 spks:
   multi_speaker: True
@@ -82,5 +87,5 @@ styles:
 max_seq_len: 1000
 
 vocoder:
-  model: "HiFi-GAN" # support 'HiFi-GAN', 'MelGAN'
+  model: "MelGAN" # support 'HiFi-GAN', 'MelGAN'
   speaker: "universal" # support  'LJSpeech', 'universal'
