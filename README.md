@@ -1,4 +1,16 @@
 Decompose speech into content, style and speaker
-### data preprocess
+# 1. data preprocess
+## extract mel spectrogram
+Following [ming024's FastSpeech2](https://github.com/ming024/FastSpeech2), ```python3 preprocess.py config/LJSpeech/preprocess.yaml```
 
-```python3 preprocess.py config/LJSpeech/preprocess.yaml```
+## extract d-vector
+Following [liusongxiang's ppg-vc](https://github.com/liusongxiang/ppg-vc), ```python3 3_compute_spk_dvecs_no_flatten.py```
+
+# 2 train
+local GCR debug : ``` python3 -m torch.distributed.launch train_ddp.py --model-dir ./model_debug_dir --log-dir ./log_debug_dir -p config/VCTK/preprocess.yaml -m config/VCTK/model.yaml -t config/VCTK/train.yaml```
+
+
+# Reference
+
+
+
