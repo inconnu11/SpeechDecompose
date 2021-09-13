@@ -5,7 +5,7 @@ import torch
 import numpy as np
 
 # import hifigan
-from model.speechdecompose import SpeechDecompose
+from model.speechdecompose_dataloader_segment import SpeechDecompose
 from model.optimizer import ScheduledOptim
 
 def get_model(args, configs, device, train=False):

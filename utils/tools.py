@@ -77,13 +77,17 @@ def to_device(data, device):
 
 
 def log(
-    logger, step=None, losses=None, learning_rate=None, fig=None, audio=None, sampling_rate=16000, tag=""
+    logger, step=None, losses=None, learning_rate=None, lambda_kl=None, fig=None, audio=None, sampling_rate=16000, tag=""
 ):
     if losses is not None:
         logger.add_scalar("Loss/total_loss", losses[0], step)
-        logger.add_scalar("Loss/mel_loss", losses[1], step)
-        logger.add_scalar("Loss/mel_postnet_loss", losses[2], step)
+        logger.add_scalar("Loss/total_mel_loss", losses[1], step)
+        logger.add_scalar("Loss/mel_loss", losses[2], step)
+        logger.add_scalar("Loss/mel_postnet_loss", losses[3], step)
+        logger.add_scalar("Loss/style_kl_loss", losses[4], step)
+        logger.add_scalar("Loss/content_vq_loss", losses[5], step)
         logger.add_scalar("learning_rate", learning_rate, step)
+        logger.add_scalar("lambda_kl", lambda_kl, step)
         # logger.add_scalar("Loss/pitch_loss", losses[3], step)
         # logger.add_scalar("Loss/energy_loss", losses[4], step)
         # logger.add_scalar("Loss/duration_loss", losses[5], step)
@@ -97,8 +101,6 @@ def log(
             audio / max(abs(audio)),
             sample_rate=sampling_rate,
         )
-
-
 def get_mask_from_lengths(lengths, max_len=None):
     batch_size = lengths.shape[0]
     if max_len is None:
@@ -118,38 +120,42 @@ def expand(values, durations):
 
 
 def synth_one_sample(targets, predictions, vocoder, model_config, preprocess_config):
+    # batch = (mel, speaker_embeddings, fid)
+    # output = (mel_predictions, postnet_mel_predictions, content_vq_loss, mu, log_sigma)
+    # print("target", targets)
+    # print("predictions", predictions)
+    basename = targets[2][0]
+    # print("basename", basename)
+    mel_target = targets[0][0].detach().transpose(0, 1)
+    # print("mel_target", mel_target.size()) ([128, 16, 80]) 
+    mel_prediction = predictions[0][0].detach().transpose(0, 1)
+    # print("mel_prediction", mel_prediction.size()) ([128, 16, 80]) 
+    # duration = targets[11][0, :src_len].detach().cpu().numpy()
+    # if preprocess_config["preprocessing"]["pitch"]["feature"] == "phoneme_level":
+    #     pitch = targets[9][0, :src_len].detach().cpu().numpy()
+    #     pitch = expand(pitch, duration)
+    # else:
+    #     pitch = targets[9][0, :mel_len].detach().cpu().numpy()
+    # if preprocess_config["preprocessing"]["energy"]["feature"] == "phoneme_level":
+    #     energy = targets[10][0, :src_len].detach().cpu().numpy()
+    #     energy = expand(energy, duration)
+    # else:
+    #     energy = targets[10][0, :mel_len].detach().cpu().numpy()
 
-    basename = targets[0][0]
-    src_len = predictions[8][0].item()
-    mel_len = predictions[9][0].item()
-    mel_target = targets[6][0, :mel_len].detach().transpose(0, 1)
-    mel_prediction = predictions[1][0, :mel_len].detach().transpose(0, 1)
-    duration = targets[11][0, :src_len].detach().cpu().numpy()
-    if preprocess_config["preprocessing"]["pitch"]["feature"] == "phoneme_level":
-        pitch = targets[9][0, :src_len].detach().cpu().numpy()
-        pitch = expand(pitch, duration)
-    else:
-        pitch = targets[9][0, :mel_len].detach().cpu().numpy()
-    if preprocess_config["preprocessing"]["energy"]["feature"] == "phoneme_level":
-        energy = targets[10][0, :src_len].detach().cpu().numpy()
-        energy = expand(energy, duration)
-    else:
-        energy = targets[10][0, :mel_len].detach().cpu().numpy()
+    # with open(
+    #     os.path.join(preprocess_config["path"]["preprocessed_path"], "stats.json")
+    # ) as f:
+    #     stats = json.load(f)
+    #     stats = stats["pitch"] + stats["energy"][:2]
 
-    with open(
-        os.path.join(preprocess_config["path"]["preprocessed_path"], "stats.json")
-    ) as f:
-        stats = json.load(f)
-        stats = stats["pitch"] + stats["energy"][:2]
-
-    fig = plot_mel(
-        [
-            (mel_prediction.cpu().numpy(), pitch, energy),
-            (mel_target.cpu().numpy(), pitch, energy),
-        ],
-        stats,
-        ["Synthetized Spectrogram", "Ground-Truth Spectrogram"],
-    )
+    # fig = plot_mel(
+    #     [
+    #         (mel_prediction.cpu().numpy(), pitch, energy),
+    #         (mel_target.cpu().numpy(), pitch, energy),
+    #     ],
+    #     stats,
+    #     ["Synthetized Spectrogram", "Ground-Truth Spectrogram"],
+    # )
 
     if vocoder is not None:
         from .model import vocoder_infer
@@ -169,7 +175,8 @@ def synth_one_sample(targets, predictions, vocoder, model_config, preprocess_con
     else:
         wav_reconstruction = wav_prediction = None
 
-    return fig, wav_reconstruction, wav_prediction, basename
+    # return fig, wav_reconstruction, wav_prediction, basename
+    return wav_reconstruction, wav_prediction, basename
 
 
 def synth_samples(targets, predictions, vocoder, model_config, preprocess_config, path):

@@ -7,6 +7,7 @@ import numpy as np
 import torch
 
 def to_gpu(x):
+    # print("x", x)
     x = x.contiguous()
 
     if torch.cuda.is_available():

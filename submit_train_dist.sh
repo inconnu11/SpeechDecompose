@@ -14,7 +14,7 @@ distributed="true"   # enable distributed training or not
 dist_method="torch"  # torch or horovod
 
 project_name="SPEECHDECOMPOSE"  # project name (e.g., tacotron/fastspeech)
-exp_name="CONTENT_STYLE_SPK_0903_109spk_warmup_fs2_v0"    # experimental name (e.g., Evan/Guy/Jessa)
+exp_name="CONTENT_STYLE_SPK_0913_VQ_KL_v0"    # experimental name (e.g., Evan/Guy/Jessa)
 
 data_dir="/datablob"
 # if the packages not installed in the docker, you can install them here
@@ -39,7 +39,7 @@ python third_party/Submitter/utils/pt_submit.py \
 		--data-container-name "philly-ipgsp" --model-container-name "philly-ipgsp" \
 		--extra-env-setup-cmd "${extra_env_setup_cmd}" --local-code-dir "$(pwd)" \
 		--pt-project ${project_name} --exp-name ${exp_name} \
-		--run-cmd "python train_ddp.py"
+		--run-cmd "python train_ddp_dataloader_segment.py"
         # --run-cmd "python -m torch.distributed.launch --nproc_per_node=8 train_ddp.py --model-dir /modelblob/v-jiewang/MODELS/TRANSFORMER/" 
 		# --image-name "pytorch1.3.0-hvd-apex-py37-cuda10.0-cudnn7:latest" \
 				# --run-cmd "sleep 300000000;echo"

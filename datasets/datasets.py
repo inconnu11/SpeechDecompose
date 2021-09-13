@@ -162,20 +162,13 @@ class MultiSpkVcCollate():
         max_mel_len = max(mel_lengths)
         if max_mel_len % self.n_frames_per_step != 0:
             max_mel_len += (self.n_frames_per_step - max_mel_len % self.n_frames_per_step)
-        # ppg_dim = ppgs[0].shape[1]
         mel_dim = mels[0].shape[1]
-        # ppgs_padded = torch.FloatTensor(batch_size, max_ppg_len, ppg_dim).zero_()
         mels_padded = torch.FloatTensor(batch_size, max_mel_len, mel_dim).zero_()
-        # lf0_uvs_padded = torch.FloatTensor(batch_size, self.f02ppg_length_ratio * max_ppg_len, 2).zero_()
         stop_tokens = torch.FloatTensor(batch_size, max_mel_len).zero_()
         for i in range(batch_size):
-            # cur_ppg_len = ppgs[i].shape[0]
             cur_mel_len = mels[i].shape[0]
-            # ppgs_padded[i, :cur_ppg_len, :] = ppgs[i]
-            # lf0_uvs_padded[i, :self.f02ppg_length_ratio*cur_ppg_len, :] = lf0_uvs[i]
             mels_padded[i, :cur_mel_len, :] = mels[i]
             stop_tokens[i, cur_mel_len-self.n_frames_per_step:] = 1
-        # print("dataset max_mel_len", max_mel_len)
         if len(batch[0]) == 3:   # 输入有spk
             ret_tup = (mels_padded, torch.LongTensor(mel_lengths), torch.LongTensor(max_mel_len), spk_ids)
             if self.give_uttids:
