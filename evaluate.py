@@ -10,7 +10,7 @@ from utils.model import get_model, get_vocoder
 from utils.tools import to_device, log, synth_one_sample
 # from model import FastSpeech2Loss
 # from dataset import Dataset
-from datasets.datasets import OneshotVcDataset
+from datasets.datasets import OneshotVcDataset, MultiSpkVcCollate
 from model.loss import DisentangleLoss
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -44,7 +44,9 @@ def evaluate(model, step, configs, logger=None, vocoder=None):
 
     validate_loader = DataLoader(validate_set, batch_size=train_config["optimizer"]["batch_size"],
                                 shuffle=False, num_workers=train_config["ddp"]["num_workers"],
-                                collate_fn=validate_set.collate_fn)
+                                collate_fn=MultiSpkVcCollate(n_frames_per_step=1,
+                                         f02ppg_length_ratio=1,
+                                         use_spk_dvec=True))
     # Get loss function
     # Loss = FastSpeech2Loss(preprocess_config, model_config).to(device)
     Loss = DisentangleLoss(preprocess_config, model_config).to(device)

@@ -139,12 +139,13 @@ class MultiSpkVcCollate():
         self.use_spk_dvec = use_spk_dvec
 
     def __call__(self, batch):
-        batch_size = len(batch)              
+        batch_size = len(batch)   
+        # (mel, spk_dvec, fid)           
         # Prepare different features 
         # ppgs = [x[0] for x in batch]
         # lf0_uvs = [x[1] for x in batch]
-        mels = [x[2] for x in batch]
-        fids = [x[-1] for x in batch]
+        mels = [x[0] for x in batch]
+        fids = [x[2] for x in batch]
         # if len(batch[0]) == 5:
         if len(batch[0]) == 3:   # mel, spk_dvec, fid
             spk_ids = [x[1] for x in batch]
@@ -174,14 +175,15 @@ class MultiSpkVcCollate():
             # lf0_uvs_padded[i, :self.f02ppg_length_ratio*cur_ppg_len, :] = lf0_uvs[i]
             mels_padded[i, :cur_mel_len, :] = mels[i]
             stop_tokens[i, cur_mel_len-self.n_frames_per_step:] = 1
+        # print("dataset max_mel_len", max_mel_len)
         if len(batch[0]) == 3:   # 输入有spk
-            ret_tup = (mels_padded, torch.LongTensor(mel_lengths), torch.LongTensor(max_mel_len), spk_ids, stop_tokens)
+            ret_tup = (mels_padded, torch.LongTensor(mel_lengths), torch.LongTensor(max_mel_len), spk_ids)
             if self.give_uttids:
                 return ret_tup + (fids, )
             else:
                 return ret_tup
         else:
-            ret_tup = (mels_padded, torch.LongTensor(mel_lengths), torch.LongTensor(max_mel_len), stop_tokens)
+            ret_tup = (mels_padded, torch.LongTensor(mel_lengths), torch.LongTensor(max_mel_len))
             if self.give_uttids:
                 return ret_tup + (fids, )
             else:

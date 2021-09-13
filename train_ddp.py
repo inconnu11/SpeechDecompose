@@ -108,7 +108,9 @@ def main(args, configs):
     train_loader = DataLoader(train_set, batch_size=train_config["optimizer"]["batch_size"], sampler=train_sampler,
                                   shuffle=shuffle,
                                   num_workers=train_config["ddp"]["num_workers"],
-                                  collate_fn=MultiSpkVcCollate)
+                                  collate_fn=MultiSpkVcCollate(n_frames_per_step=1,
+                                         f02ppg_length_ratio=1,
+                                         use_spk_dvec=True))
 
     # Prepare model
     model, optimizer = get_model(args, configs, device, train=True)
@@ -154,8 +156,130 @@ def main(args, configs):
     outer_bar = tqdm(total=total_step, desc="Training", position=0)
     outer_bar.n = args.restore_step
     outer_bar.update()
+    model.train()
+    while step < total_step:
+        if train_config["ddp"]["distributed_run"]:
+            train_loader.sampler.set_epoch(epoch)        
+        inner_bar = tqdm(total=len(train_loader), desc="Epoch {}".format(epoch), position=1)
+        for batch in train_loader:
+        # for batch in batchs:   # 每一个sample？
+            if is_parallel_model(model):
+                batch = model.module.parse_batch(batch)
+            else:
+                batch = model.parse_batch(batch)    
+            # batch = model.parse_batch(batch)                       
+            # Forward
+            # output = model(*(batch[2:]))
+            output = model(*(batch))
 
-    while True:
+            # Cal Loss
+            losses = Loss(batch, output, step)  # step for annealing
+            # losses : total_loss, mel_loss, postnet_mel_loss, stop loss
+            total_loss = losses[0]
+
+            # Backward
+            total_loss = total_loss / grad_acc_step
+            # total_loss.backward()
+            if train_config["ddp"]["fp16_run"]:
+                with amp.scale_loss(total_loss, optimizer) as scaled_loss:
+                    scaled_loss.backward()
+            else:
+                total_loss.backward()
+            if step % grad_acc_step == 0:
+                if train_config["ddp"]["fp16_run"]:
+                    grad_norm = torch.nn.utils.clip_grad_norm_(
+                        amp.master_params(optimizer), grad_clip_thresh)
+                    is_overflow = math.isnan(grad_norm)
+                else:
+                    grad_norm = torch.nn.utils.clip_grad_norm_(
+                        model.parameters(), grad_clip_thresh)
+                # Update weights
+                optimizer.step_and_update_lr()
+                optimizer.zero_grad()                            
+            
+            # if step % grad_acc_step == 0:
+            #     # Clipping gradients to avoid gradient explosion
+            #     nn.utils.clip_grad_norm_(model.parameters(), grad_clip_thresh)
+
+            #     # Update weights
+            #     optimizer.step_and_update_lr()
+            #     optimizer.zero_grad()
+
+            learning_rate = optimizer._get_lr_scale()
+            if (rank == 0):
+                if step % log_step == 0:
+                    losses = [l.item() for l in losses]
+                    message1 = "Step {}/{}, ".format(step, total_step)
+                    message2 = "Total Loss: {:.4f}, Mel Loss: {:.4f}, Mel PostNet Loss: {:.4f}, Content KL Loss: {:.4f}, Content KL lambda :{:.4f}".format(
+                        *losses
+                    )
+
+                    with open(os.path.join(train_log_path, "log.txt"), "a") as f:
+                        f.write(message1 + message2 + "\n")
+
+                    outer_bar.write(message1 + message2)
+
+                    log(train_logger, step, losses=losses, learning_rate=learning_rate)
+
+                if step % synth_step == 0:
+                    fig, wav_reconstruction, wav_prediction, tag = synth_one_sample(
+                        batch,
+                        output,
+                        vocoder,
+                        model_config,
+                        preprocess_config,
+                    )
+                    log(
+                        train_logger,
+                        fig=fig,
+                        tag="Training/step_{}_{}".format(step, tag),
+                        learning_rate=learning_rate,
+                    )
+                    sampling_rate = preprocess_config["preprocessing"]["audio"][
+                        "sampling_rate"
+                    ]
+                    log(
+                        train_logger,
+                        audio=wav_reconstruction,
+                        sampling_rate=sampling_rate,
+                        tag="Training/step_{}_{}_reconstructed".format(step, tag),
+                        learning_rate=learning_rate,
+                    )
+                    log(
+                        train_logger,
+                        audio=wav_prediction,
+                        sampling_rate=sampling_rate,
+                        tag="Training/step_{}_{}_synthesized".format(step, tag),
+                        learning_rate=learning_rate,
+                    )
+
+                if step % val_step == 0:
+                    model.eval()
+                    message = evaluate(model, step, configs, val_logger, vocoder)
+                    with open(os.path.join(val_log_path, "log.txt"), "a") as f:
+                        f.write(message + "\n")
+                    outer_bar.write(message)
+
+                    model.train()
+
+                if step % save_step == 0:
+                    torch.save(
+                        {
+                            "model": model.module.state_dict(),
+                            "optimizer": optimizer._optimizer.state_dict(),
+                        },
+                        os.path.join(
+                            train_config["path"]["ckpt_path"],
+                            "{}.pth.tar".format(step),
+                        ),
+                    )
+            step += 1
+            outer_bar.update(1)
+            inner_bar.update(1)
+        epoch += 1
+
+    ############ following ming's fs2 ############
+    # while True:
         if train_config["ddp"]["distributed_run"]:
             train_loader.sampler.set_epoch(epoch)        
         inner_bar = tqdm(total=len(train_loader), desc="Epoch {}".format(epoch), position=1)
@@ -164,7 +288,7 @@ def main(args, configs):
                 if is_parallel_model(model):
                     batch = model.module.parse_batch(batch)
                 else:
-                    batch = model.parse_batch(batch)                
+                    batch = model.parse_batch(batch)                 
                 # batch = to_device(batch, device)
                 
                 # Forward
@@ -277,10 +401,9 @@ def main(args, configs):
                     quit()
                 step += 1
                 outer_bar.update(1)
-            
             inner_bar.update(1)
         epoch += 1
-
+    ############ following ming's fs2 ############
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

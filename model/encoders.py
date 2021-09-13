@@ -3,17 +3,22 @@ import torch.nn as nn
 import torch.nn.functional as F
 
     
-
+# RuntimeError: Given groups=1, weight of size 128 512 1, 
+# expected input[16, 406, 80] to have 512 channels, but got 406 channels instead  
 def pad_layer(inp, layer, pad_type='reflect'):
     kernel_size = layer.kernel_size[0]
+    # print("kernel_size", kernel_size)  # 1
     if kernel_size % 2 == 0:
         pad = (kernel_size//2, kernel_size//2 - 1)
     else:
         pad = (kernel_size//2, kernel_size//2)
+    # print("pad shape", pad) #(0,0)
+    # print("before padding, inp shape", inp.size())
     # padding
     inp = F.pad(inp, 
             pad=pad,
             mode=pad_type)
+    # print("after padding, inp shape", inp.size())       
     out = layer(inp)
     return out
     
@@ -142,7 +147,11 @@ class ContentEncoder(nn.Module):
 
 
     def forward(self, x):
-        out = self.conv_bank(x, self.conv_bank, act=self.act)
+        # print("x shape", x.size()) # ([16, 406, 80])  
+        x = x.transpose(1,2)
+        out = conv_bank(x, self.conv_bank, act=self.act)
+        # print("put shape", out.size())
+        # out = conv_bank(x, self.conv_bank)
         # dimension reduction layer
         out = pad_layer(out, self.in_conv_layer)
         out = self.norm_layer(out)
@@ -161,16 +170,27 @@ class ContentEncoder(nn.Module):
             if self.subsample[l] > 1:
                 out = F.avg_pool1d(out, kernel_size=self.subsample[l], ceil_mode=True)
             out = y + out
-        z_beforeVQ = out
-        z, r, loss, perplexity = self.codebook(z_beforeVQ) # z: (bz, 128/2, 64)
-        c, _ = self.rnn(z) # (64, 140/2, 64) -> (64, 140/2, 256)
+        # 前面的网络时间轴上下采样了, 1/2 原本输入特征是([16, 128, 406])(batch, feature, frame)，输出的out是([16, 128, 51]) 
+        z_beforeVQ = out.transpose(1,2)
+        z, r, loss, perplexity = self.codebook(z_beforeVQ) 
+        # print("out shape",out.size())  # batch, feature, frame ([16, 128, 51])
+        # print("z_beforeVQ shape", z_beforeVQ.size()) # batch, frame, feature ([16, 51, 128])  
+        # print("z_afterVQ shape", z.size())  # ([16, 51, 128])  
+        # print("r shape", r.size())   # ([16, 51, 128])  
+        # print("loss", loss)
+        # print("perplexity", perplexity)      
+        c, _ = self.rnn(z) # (16, 51, 128) -> (64, 51, 256) 
+        # print("c shape", c.size()) #([16, 51, 256])  
+        #input.size(-1) must be equal to input_size. Expected 64, got 51  
         return z, c, z_beforeVQ, loss, perplexity
         # mu = pad_layer(out, self.mean_layer)
         # log_sigma = pad_layer(out, self.std_layer)
         # return out, mu, log_sigma
 
     def inference(self, x):
-        out = self.conv_bank(x, self.conv_bank, act=self.act)
+        print("x shape", x.size())
+        x = x.transpose(1,2)        
+        out = conv_bank(x, self.conv_bank, act=self.act)
         # dimension reduction layer
         out = pad_layer(out, self.in_conv_layer)
         out = self.norm_layer(out)
@@ -189,7 +209,7 @@ class ContentEncoder(nn.Module):
             if self.subsample[l] > 1:
                 out = F.avg_pool1d(out, kernel_size=self.subsample[l], ceil_mode=True)
             out = y + out
-        z_beforeVQ = out
+        z_beforeVQ = out.transpose(1,2)
         z, r, indices = self.codebook.inference(z_beforeVQ) # z: (bz, 128/2, 64)
         c, _ = self.rnn(z) # (64, 140/2, 64) -> (64, 140/2, 256)
         return z, c, z_beforeVQ, indices
@@ -259,7 +279,10 @@ class StyleEncoder(nn.Module):
         return out
 
     def forward(self, x):
+        # print("x shape", x.size())
+        x = x.transpose(1,2)        
         out = conv_bank(x, self.conv_bank, act=self.act)
+        # out = conv_bank(x, self.conv_bank)
         # dimension reduction layer
         out = pad_layer(out, self.in_conv_layer)
         out = self.act(out)
@@ -267,12 +290,16 @@ class StyleEncoder(nn.Module):
         out = self.conv_blocks(out)
         # avg pooling
         out = self.pooling_layer(out).squeeze(2)
-        print("after pooling layer shape", out.shape)
+        # print("after pooling layer shape", out.shape)  # ([16, 128])  
         # dense blocks
         out = self.dense_blocks(out)
         out = self.output_layer(out)
-        print("style encoder final style embedding shape", out.shape)
-        mu = pad_layer(out, self.mean_layer)
-        log_sigma = pad_layer(out, self.std_layer)
+        # print("style encoder final style embedding shape", out.shape)  # ([16, 128]) 
+        out_for_mean_var = out.unsqueeze(1).transpose(1,2)
+        # print("out_for_mean_var shape", out_for_mean_var.size())   #([16, 128, 1]) 
+        mu = pad_layer(out_for_mean_var, self.mean_layer).squeeze()    # ([16, 128, 1]) -> ([16, 1, 128]) 
+        log_sigma = pad_layer(out_for_mean_var, self.std_layer).squeeze() 
+        # print("mu shape", mu.size()) ([16, 128]) 
+        # print("log_sigma shape", log_sigma.size()) ([16, 128]) 
         return out, mu, log_sigma        
         # return out

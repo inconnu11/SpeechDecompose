@@ -16,30 +16,43 @@ class DisentangleLoss(nn.Module):
         self.mse_loss = nn.MSELoss()
         self.mae_loss = nn.L1Loss()
         self.stop_loss_criterion = nn.BCEWithLogitsLoss(reduction='none') 
-        self.frames_per_step =  model_config["decoder"]["frames_per_step"]
+        # self.frames_per_step =  model_config["decoder"]["frames_per_step"]
         self.train_config = train_config
 
     def forward(self, inputs, predictions, step):
         # inputs: (mel, mel_lens, max_mel_len, speaker_embeddings)
-        (mel_targets, mel_lens, max_mel_len, speaker_embeddings, stop_tokens) = inputs
+        (mel_targets, mel_lens, max_mel_len, speaker_embeddings) = inputs
         # inputs = (mel, mel_lens, max_mel_len, speaker_embeddings, stop_tokens)
         
         # predictions (output, postnet_output,mel_masks, mel_lens) 
-        (mel_predictions, postnet_mel_predictions, mel_masks, mel_lens, content_vq_loss, mu, log_sigma) = predictions
+        (mel_predictions, postnet_mel_predictions,  _, content_vq_loss, mu, log_sigma) = predictions
+        ################ fastspeech 2 mel mask ##############
+        # mel_masks = ~mel_masks
+        # mel_targets = mel_targets[:, : mel_masks.shape[1], :]
+        # mel_masks = mel_masks[:, :mel_masks.shape[1]]
+        # mel_targets.requires_grad = False
 
-        mel_masks = ~mel_masks
-        mel_targets = mel_targets[:, : mel_masks.shape[1], :]
-        mel_masks = mel_masks[:, :mel_masks.shape[1]]
-        mel_targets.requires_grad = False
+        # mel_predictions = mel_predictions.masked_select(mel_masks.unsqueeze(-1))
+        # postnet_mel_predictions = postnet_mel_predictions.masked_select(
+        #     mel_masks.unsqueeze(-1)
+        # )
+        # mel_targets = mel_targets.masked_select(mel_masks.unsqueeze(-1))
+        ################ fastspeech 2 mel mask ##############
 
-        mel_predictions = mel_predictions.masked_select(mel_masks.unsqueeze(-1))
-        postnet_mel_predictions = postnet_mel_predictions.masked_select(
-            mel_masks.unsqueeze(-1)
-        )
-        mel_targets = mel_targets.masked_select(mel_masks.unsqueeze(-1))
+        ########### ppg-vc-lsx MaskedMSELoss ############
+        # (B, T, 1)
+        mask = self.get_mask(mel_lens).unsqueeze(-1)
+        # (B, T, D)
+        mask_ = mask.expand_as(mel_targets)
+        print("mask_", mask_)
+        print("mel_predictions", mel_predictions)
+        print("mel_targets", mel_targets)
+        # return ((loss * mask_).sum()) / mask_.sum()
+        # mel_predictions [16, 408, 80], mel_targets ([16, 406, 80])
+        mel_loss = ((self.mae_loss(mel_predictions, mel_targets) * mask_).sum()) / mask_.sum()
+        postnet_mel_loss = ((self.mae_loss(postnet_mel_predictions, mel_targets) * mask_).sum()) / mask_.sum()        
+        ########### ppg-vc-lsx MaskedMSELoss ############
 
-        mel_loss = self.mae_loss(mel_predictions, mel_targets)
-        postnet_mel_loss = self.mae_loss(postnet_mel_predictions, mel_targets)
 
         # stop token loss
         # B = stop_tokens.size(0)
@@ -71,5 +84,17 @@ class DisentangleLoss(nn.Module):
             postnet_mel_loss,
             style_kl_loss,
             lambda_kl, 
-            vq_loss
+            content_vq_loss
         )
+    def get_mask(self, lengths):
+        # lengths: [B,]
+        # print("mel len", lengths)
+        max_len = torch.max(lengths)
+        # print("max len", max_len)  # max len tensor(406., device='cuda:0')  
+        batch_size = lengths.size(0)
+        # print("batch_size", batch_size)  # 16
+        seq_range = torch.arange(0, max_len).long()
+        # print("seq_range", seq_range)   # [0,1,2, ... ,405]
+        seq_range_expand = seq_range.unsqueeze(0).expand(batch_size, max_len).to(lengths.device)
+        seq_length_expand = lengths.unsqueeze(1).expand_as(seq_range_expand)
+        return (seq_range_expand < seq_length_expand).float()        

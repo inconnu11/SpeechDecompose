@@ -29,7 +29,7 @@
 #   attn_head: 4
 max_seq_len: 1000
 content_encoder:
-  c_in: 512
+  c_in: 80
   c_h: 128
   c_out: 128
   kernel_size: 5
@@ -44,11 +44,11 @@ content_encoder:
         in_channels: 80
         channels: 512
         n_embeddings: 512
-        z_dim: 64
+        z_dim: 128
         c_dim: 256
 
 style_encoder:
-  c_in: 512
+  c_in: 80
   c_h: 128
   c_out: 128
   kernel_size: 5
@@ -62,6 +62,19 @@ style_encoder:
   dropout_rate: 0
 
 decoder:
+  c_in: 512
+  c_cond: 128
+  c_h: 128
+  c_out: 512
+  kernel_size: 5
+  n_conv_blocks: 6
+  upsample: [2, 1, 2, 1, 2, 1]
+  act: 'relu'
+  sn: False
+  dropout_rate: 0
+
+
+decoder_autovc:
   frames_per_step: 1
   dim_content: 64
   dim_style: 32
@@ -80,7 +93,7 @@ spks:
   spk_embed_dim: 256
 
 styles:
-  multi_styles: False
+  multi_styles: True
   num_styles: 3
   style_embed_dim: 256
 
