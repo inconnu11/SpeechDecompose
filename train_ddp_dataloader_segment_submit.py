@@ -126,9 +126,6 @@ def main(args, configs, output_directory, log_directory):
     Loss = DisentangleLoss(preprocess_config, model_config, train_config).to(device)
     print("Number of SpeechDecompose Parameters:", num_param)
 
-    # Load vocoder
-    vocoder = get_vocoder(model_config, device)
-
     # Init logger
     for p in train_config["path"].values():
         os.makedirs(p, exist_ok=True)
@@ -222,6 +219,8 @@ def main(args, configs, output_directory, log_directory):
             learning_rate = optimizer._get_lr_scale()
             # print("learning_rate", learning_rate)
             if (rank == 0):
+                # Load vocoder
+                vocoder = get_vocoder(model_config, device)
                 if step % log_step == 0:
                     losses = [l.item() for l in losses]
                     message1 = "Step {}/{}, ".format(step, total_step)
