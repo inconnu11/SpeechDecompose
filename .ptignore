@@ -1,0 +1,11 @@
+*.wav
+*.npy
+*.pyc
+event*
+*.txt
+third_party/figure/*
+third_party/tools/*
+third_party/figure/*
+third_party/jobs/*
+__pycache__
+*.tar

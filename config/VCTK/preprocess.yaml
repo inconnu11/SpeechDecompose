@@ -1,18 +1,26 @@
 # dataset: "LibriTTS"
 dataset: "VCTK"
 data:
-  # train_fid_list: "./raw_data/VCTK/fidlists/train.txt"
-  # validate_fid_list: "./raw_data/VCTK/fidlists/val.txt"
-  # test_fid_list: "./raw_data/VCTK/fidlists/test.txt"
-  train_fid_list: "./preprocessed_data/VCTK_16k/train.txt"
-  validate_fid_list: "./preprocessed_data/VCTK_16k/val.txt"
-  test_fid_list: "./preprocessed_data/VCTK_16k/test.txt"
-  vctk_wav_dir: "/home/v-jiewang/data/VCTK-corpus/VCTK-Corpus/wav16_downsample_trim_topdb30"
-  vctk_mel_dir : "/home/v-jiewang/SpeechDecompose/preprocessed_data/VCTK_16k/mel"
-  raw_path: "./raw_data/VCTK"
-  preprocessed_path: "./preprocessed_data/VCTK_16k"
-  # vctk_spk_dvec_dir: "/home/shaunxliu/data/vctk/GE2E_spkEmbed_step_5805000_perSpk"
-  vctk_spk_dvec_dir: "/home/v-jiewang/data/VCTK-corpus/VCTK-Corpus/wav16_downsample_trim_topdb30_d_vector_flatten/GE2E_spkEmbed_step_5805000"
+  ########### local GCR path #############
+  # train_fid_list: "./preprocessed_data/VCTK_16k/train.txt"
+  # validate_fid_list: "./preprocessed_data/VCTK_16k/val.txt"
+  # test_fid_list: "./preprocessed_data/VCTK_16k/test.txt"
+  # vctk_wav_dir: "/home/v-jiewang/data/VCTK-corpus/VCTK-Corpus/wav16_downsample_trim_topdb30"
+  # vctk_mel_dir : "/home/v-jiewang/SpeechDecompose/preprocessed_data/VCTK_16k/mel"
+  # raw_path: "./raw_data/VCTK"
+  # preprocessed_path: "./preprocessed_data/VCTK_16k"
+  # vctk_spk_dvec_dir: "/home/v-jiewang/data/VCTK-corpus/VCTK-Corpus/wav16_downsample_trim_topdb30_d_vector_flatten/GE2E_spkEmbed_step_5805000"
+  ########### local GCR path #############
+  ########### azure blob storage path #############
+  raw_path: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/raw_data/VCTK"
+  vctk_wav_dir: "/datablob/v-jiewang/Data/VCTK_raw_data/wav16_downsample_trim_topdb30/"  
+  train_fid_list: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_16k/train.txt"
+  validate_fid_list: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_16k/val.txt"
+  test_fid_list: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_16k/test.txt"
+  vctk_mel_dir : "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_16k/mel"
+  preprocessed_path: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_16k"
+  vctk_spk_dvec_dir: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/wav16_downsample_trim_topdb30_d_vector_flatten/GE2E_spkEmbed_step_5805000/"  
+  ########### azure blob storage path #############
   wav_file_ext: "wav"
   mel_file_ext: "npy"
   min_max_norm_mel: True
