@@ -12,7 +12,7 @@ Following [liusongxiang's ppg-vc](https://github.com/liusongxiang/ppg-vc), ```py
 
 
 # 2 train
-local GCR debug : ``` python3 -m torch.distributed.launch train_ddp.py --model-dir ./model_debug_dir --log-dir ./log_debug_dir -p config/VCTK/preprocess.yaml -m config/VCTK/model.yaml -t config/VCTK/train.yaml```
+local GCR debug : ``` python3 -m torch.distributed.launch train_ddp_dataloader_segment_submit.py --model-dir ./model_debug_dir --log-dir ./log_debug_dir -p config/VCTK/preprocess.yaml -m config/VCTK/model.yaml -t config/VCTK/train.yaml```
 
 WebIDE : ```        ```
 
