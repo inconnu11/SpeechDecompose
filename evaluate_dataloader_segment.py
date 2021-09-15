@@ -58,8 +58,13 @@ def evaluate(model, step, configs, logger=None, vocoder=None, learning_rate=None
         mel, speaker_embeddings, fid = batch
         mel = mel.to(device)
         speaker_embeddings = speaker_embeddings.to(device)
-        batch = (mel, speaker_embeddings, fid)            
-        # batch = to_device(batch, device)
+        # batch = (mel, speaker_embeddings, fid)     
+        ################# 3 mel input ###############
+        mel_content = mel
+        mel_spk = mel
+        mel_style = mel
+        batch = (mel_content, mel_spk, mel_style, speaker_embeddings, fid)
+         ################# 3 mel input ###############
         with torch.no_grad():
             # Forward
             output = model(*(batch))

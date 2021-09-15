@@ -54,7 +54,7 @@ data:
 
 preprocessing:
   audio:
-    sampling_rate: 16000
+    sampling_rate: 22050
     max_wav_value: 32768.0
   stft:   
     filter_length: 1024

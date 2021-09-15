@@ -82,12 +82,13 @@ class SpeechDecompose(nn.Module):
 
         return (inputs)
 
-    def forward(self, mel = None, spembs = None, fid = None, styleembs = None):
+    # def forward(self, mel = None, spembs = None, fid = None, styleembs = None):
+    def forward(self, mel_content = None, mel_spk = None, mel_style = None, spembs = None, fid = None, styleembs = None ):
         # print("mel size", mel.size())
         # print("mel shape", mel.shape)  # [406, 80]
         # T, _ = mel.size()
-        B, T, _ = mel.size()  # [16, 406, 80]
-        z, c, z_beforeVQ, vq_loss, perplexity = self.encoder_content(mel)
+        B, T, _ = mel_content.size()  # [16, 406, 80]
+        z, c, z_beforeVQ, vq_loss, perplexity = self.encoder_content(mel_content)
         content_embs = z    # (16, 51, 128)
         T_down = content_embs.shape[1]
         x = content_embs
@@ -120,7 +121,7 @@ class SpeechDecompose(nn.Module):
             else:
                 # print("styleembs is None")
                 # style_embs = self.encoder_style(mel)
-                out, mu, log_sigma  = self.encoder_style(mel)
+                out, mu, log_sigma  = self.encoder_style(mel_style)
                 eps = log_sigma.new(*log_sigma.size()).normal_(0, 1)
                 style_embs = mu + torch.exp(log_sigma / 2) * eps                
                 style_embs = torch.nn.functional.normalize(

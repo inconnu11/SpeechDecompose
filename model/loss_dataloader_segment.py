@@ -21,7 +21,8 @@ class DisentangleLoss(nn.Module):
 
     def forward(self, inputs, predictions, step):
         # inputs: (mel, mel_lens, max_mel_len, speaker_embeddings)
-        (mel_targets, _, _) = inputs
+        # (mel_targets, _, _) = inputs
+        mel_targets = inputs[0]
         # print("mel target ", mel_targets.size())
         # inputs = (mel, mel_lens, max_mel_len, speaker_embeddings, stop_tokens)
         

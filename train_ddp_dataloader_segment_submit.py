@@ -172,8 +172,13 @@ def main(args, configs, output_directory, log_directory):
             mel, speaker_embeddings, fid = batch
             mel = mel.to(device)
             speaker_embeddings = speaker_embeddings.to(device)
-            # fid = fid.to(device)
-            batch = (mel, speaker_embeddings, fid)
+            # batch = (mel, speaker_embeddings, fid)
+            ################# 3 mel input ###############
+            mel_content = mel
+            mel_spk = mel
+            mel_style = mel
+            batch = (mel_content, mel_spk, mel_style, speaker_embeddings, fid)
+            ################# 3 mel input ###############
 
             # batch = [i.to(device) for i in batch]
             # for i in batch:

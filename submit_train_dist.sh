@@ -14,7 +14,7 @@ distributed="true"   # enable distributed training or not
 dist_method="torch"  # torch or horovod
 
 project_name="SPEECHDECOMPOSE"  # project name (e.g., tacotron/fastspeech)
-exp_name="CONTENT_STYLE_SPK_0915_VQ_KL_PLOT_mel_energy_pitch_sampling_22050_vocoder_v0"    # experimental name (e.g., Evan/Guy/Jessa)
+exp_name="CONTENT_STYLE_SPK_0915_VQ_KL_PLOT_mel_energy_pitch_sampling_22050_vocoder_3mel_vanilla_v1"    # experimental name (e.g., Evan/Guy/Jessa)
 # exp_name="CONTENT_STYLE_SPK_0914_VQ_KL_PLOT_mel_energy_pitch_but_mismatch_vocoder_scus2_v6"
 data_dir="/datablob"
 # if the packages not installed in the docker, you can install them here
