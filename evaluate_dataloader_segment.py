@@ -77,20 +77,26 @@ def evaluate(model, step, configs, logger=None, vocoder=None, learning_rate=None
     )
 
     if logger is not None:
-        wav_reconstruction, wav_prediction, tag = synth_one_sample(
+        fig1, fig2, wav_reconstruction, wav_prediction, tag = synth_one_sample(
             batch,
             output,
             vocoder,
             model_config,
             preprocess_config,
+            step
         )
 
         log(logger, step, losses=loss_means, lambda_kl=lambda_kl, learning_rate=learning_rate)
-        # log(
-        #     logger,
-        #     # fig=fig,
-        #     tag="Validation/step_{}_{}".format(step, tag),
-        # )
+        log(
+            logger,
+            fig=fig1,
+            tag="Validation/step_{}_{}_direct_acoustic_model".format(step, tag),
+        )
+        log(
+            logger,
+            fig=fig2,
+            tag="Validation/step_{}_{}_extract_from_generated_vocoder".format(step, tag),
+        )        
         sampling_rate = preprocess_config["preprocessing"]["audio"]["sampling_rate"]
         log(
             logger,

@@ -78,6 +78,7 @@ def evaluate(model, step, configs, logger=None, vocoder=None):
             vocoder,
             model_config,
             preprocess_config,
+            step
         )
 
         log(logger, step, losses=loss_means)

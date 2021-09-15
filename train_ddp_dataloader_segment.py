@@ -241,7 +241,8 @@ def main(args, configs):
                         output,
                         vocoder,
                         model_config,
-                        preprocess_config
+                        preprocess_config,
+                        step
                     )
                     # log(
                     #     train_logger,

@@ -119,7 +119,7 @@ def expand(values, durations):
     return np.array(out)
 
 
-def synth_one_sample(targets, predictions, vocoder, model_config, preprocess_config):
+def synth_one_sample(targets, predictions, vocoder, model_config, preprocess_config, step):
     # batch = (mel, speaker_embeddings, fid)
     # output = (mel_predictions, postnet_mel_predictions, content_vq_loss, mu, log_sigma)
     # print("target", targets)
@@ -127,17 +127,36 @@ def synth_one_sample(targets, predictions, vocoder, model_config, preprocess_con
     basename = targets[2][0]
     # print("basename", basename)
     mel_target = targets[0][0].detach().transpose(0, 1)
-    # print("mel_target", mel_target.size()) ([128, 16, 80]) 
+    # print("mel_target", mel_target.size())   #(80, 128)           ?([128, 16, 80]) 
     mel_prediction = predictions[0][0].detach().transpose(0, 1)
-    # fig = plot_mel(
-    #     [
-    #         (mel_prediction.cpu().numpy(), pitch, energy),
-    #         (mel_target.cpu().numpy(), pitch, energy),
-    #     ],
-    #     stats,
-    #     ["Synthetized Spectrogram", "Ground-Truth Spectrogram"],
-    # )
+    # print("mel_prediction", mel_prediction.size())   #(80, 128)              ([128, 16, 80]) 
 
+    ################## plot direct_mel_from_acoustic_model using plt.subplot ###############
+    # direct_mel_from_acoustic_model_dir = preprocess_config["fig_path"]["direct_mel_from_acoustic_model"]
+    # os.makedirs(direct_mel_from_acoustic_model_dir, exist_ok=True)
+    # extract_from_wav_genrated_vocoder_dir = preprocess_config["fig_path"]["extract_from_wav_genrated_vocoder"]
+    # os.makedirs(extract_from_wav_genrated_vocoder_dir, exist_ok=True)
+    # fig1, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+    # ax1.imshow(mel_prediction.cpu().detach().numpy(), origin="lower")
+    # ax1.tick_params(labelsize="x-small", left=False, labelleft=False)      
+    # ax2.imshow(mel_target.cpu().detach().numpy(), origin="lower")
+    # ax2.tick_params(labelsize="x-small", left=False, labelleft=False)  
+    # plt.savefig(direct_mel_from_acoustic_model_dir + "utt-{}-step-{}.png".format(basename, step))
+    ################## plot direct_mel_from_acoustic_model using plt.subplot ###############
+
+
+    ################## plot direct_mel_from_acoustic_model using fastspeech2 ###############
+    fig1 = plot_mel(
+        [
+            (mel_prediction.cpu().numpy()),
+            (mel_target.cpu().numpy()),
+        ],
+        ["Synthetized Spectrogram", "Ground-Truth Spectrogram"],
+    )    
+    ################## plot direct_mel_from_acoustic_model using fastspeech2 ############### 
+
+
+    ## TODO: vocoder mismatch sampling rate 
     if vocoder is not None:
         from .model import vocoder_infer
 
@@ -152,12 +171,51 @@ def synth_one_sample(targets, predictions, vocoder, model_config, preprocess_con
             vocoder,
             model_config,
             preprocess_config,
-        )[0]
+        )[0]      
     else:
         wav_reconstruction = wav_prediction = None
 
-    # return fig, wav_reconstruction, wav_prediction, basename
-    return wav_reconstruction, wav_prediction, basename
+    ######################## compute mel, pitch, energy using fs2 preprocessor ###########
+    # Compute fundamental frequency
+    import pyworld as pw
+    import audio as Audio
+    STFT_as_preprocessor = Audio.stft.TacotronSTFT(
+            preprocess_config["preprocessing"]["stft"]["filter_length"],
+            preprocess_config["preprocessing"]["stft"]["hop_length"],
+            preprocess_config["preprocessing"]["stft"]["win_length"],
+            preprocess_config["preprocessing"]["mel"]["n_mel_channels"],
+            preprocess_config["preprocessing"]["audio"]["sampling_rate"],
+            preprocess_config["preprocessing"]["mel"]["mel_fmin"],
+            preprocess_config["preprocessing"]["mel"]["mel_fmax"],
+        )    
+    ########### reconstruction ########
+    pitch_reconstruction, t_reconstrcution = pw.dio(
+        wav_reconstruction.astype(np.float64),
+        preprocess_config["preprocessing"]["audio"]["sampling_rate"],
+        frame_period=preprocess_config["preprocessing"]["stft"]["hop_length"] / preprocess_config["preprocessing"]["audio"]["sampling_rate"] * 1000,
+    )
+    pitch_reconstruction = pw.stonemask(wav_reconstruction.astype(np.float64), pitch_reconstruction, t_reconstrcution, preprocess_config["preprocessing"]["audio"]["sampling_rate"])
+    mel_spectrogram_reconstruction, energy_reconstruction = Audio.tools.get_mel_from_wav(wav_reconstruction, STFT_as_preprocessor)
+    ########### reconstruction ########
+
+
+    ########### prediction ########
+    pitch_prediction, t_prediction = pw.dio(
+        wav_prediction.astype(np.float64),
+        preprocess_config["preprocessing"]["audio"]["sampling_rate"],
+        frame_period=preprocess_config["preprocessing"]["stft"]["hop_length"] / preprocess_config["preprocessing"]["audio"]["sampling_rate"] * 1000,
+    )
+    pitch_prediction = pw.stonemask(wav_prediction.astype(np.float64), pitch_prediction, t_prediction, preprocess_config["preprocessing"]["audio"]["sampling_rate"])
+    mel_spectrogram_prediction, energy_prediction = Audio.tools.get_mel_from_wav(wav_prediction, STFT_as_preprocessor)
+    ########### prediction ########
+
+    data = [(mel_spectrogram_prediction, pitch_prediction, energy_prediction), (mel_spectrogram_reconstruction, pitch_reconstruction, energy_reconstruction)]
+    fig2 = plot_mel_pitch_energy(data, ["Synthetized Spectrogram", "Ground-Truth Spectrogram"])
+
+
+    ######################## compute mel, pitch, energy using fs2 preprocessor ###########
+    return fig1, fig2, wav_reconstruction, wav_prediction, basename
+    # return wav_reconstruction, wav_prediction, basename
 
 
 def synth_samples(targets, predictions, vocoder, model_config, preprocess_config, path):
@@ -208,14 +266,32 @@ def synth_samples(targets, predictions, vocoder, model_config, preprocess_config
     for wav, basename in zip(wav_predictions, basenames):
         wavfile.write(os.path.join(path, "{}.wav".format(basename)), sampling_rate, wav)
 
+def plot_mel(data, titles):
+    fig, axes = plt.subplots(len(data), 1, sharex=True, squeeze=False)
+    if titles is None:
+        titles = [None for i in range(len(data))]
 
-def plot_mel(data, stats, titles):
+    def add_axis(fig, old_ax):
+        ax = fig.add_axes(old_ax.get_position(), anchor="W")
+        ax.set_facecolor("None")
+        return ax
+
+    for i in range(len(data)):
+        mel = data[i]
+        axes[i][0].imshow(mel, origin="lower")
+        # axes[i][0].set_aspect(2.5, adjustable="box")
+        axes[i][0].set_ylim(0, mel.shape[0])
+        axes[i][0].set_title(titles[i], fontsize="medium")
+        axes[i][0].tick_params(labelsize="x-small", left=False, labelleft=False)
+        axes[i][0].set_anchor("W")
+    # plt.savefig('./test.png') 
+    return fig
+
+
+def plot_mel_pitch_energy(data, titles):
     fig, axes = plt.subplots(len(data), 1, squeeze=False)
     if titles is None:
         titles = [None for i in range(len(data))]
-    pitch_min, pitch_max, pitch_mean, pitch_std, energy_min, energy_max = stats
-    pitch_min = pitch_min * pitch_std + pitch_mean
-    pitch_max = pitch_max * pitch_std + pitch_mean
 
     def add_axis(fig, old_ax):
         ax = fig.add_axes(old_ax.get_position(), anchor="W")
@@ -224,9 +300,9 @@ def plot_mel(data, stats, titles):
 
     for i in range(len(data)):
         mel, pitch, energy = data[i]
-        pitch = pitch * pitch_std + pitch_mean
+        # pitch = pitch * pitch_std + pitch_mean
         axes[i][0].imshow(mel, origin="lower")
-        axes[i][0].set_aspect(2.5, adjustable="box")
+        # axes[i][0].set_aspect(2.5, adjustable="box")
         axes[i][0].set_ylim(0, mel.shape[0])
         axes[i][0].set_title(titles[i], fontsize="medium")
         axes[i][0].tick_params(labelsize="x-small", left=False, labelleft=False)
@@ -234,8 +310,8 @@ def plot_mel(data, stats, titles):
 
         ax1 = add_axis(fig, axes[i][0])
         ax1.plot(pitch, color="tomato")
-        ax1.set_xlim(0, mel.shape[1])
-        ax1.set_ylim(0, pitch_max)
+        # ax1.set_xlim(0, mel.shape[1])
+        # ax1.set_ylim(0, pitch_max)
         ax1.set_ylabel("F0", color="tomato")
         ax1.tick_params(
             labelsize="x-small", colors="tomato", bottom=False, labelbottom=False
@@ -243,8 +319,8 @@ def plot_mel(data, stats, titles):
 
         ax2 = add_axis(fig, axes[i][0])
         ax2.plot(energy, color="darkviolet")
-        ax2.set_xlim(0, mel.shape[1])
-        ax2.set_ylim(energy_min, energy_max)
+        # ax2.set_xlim(0, mel.shape[1])
+        # ax2.set_ylim(energy_min, energy_max)
         ax2.set_ylabel("Energy", color="darkviolet")
         ax2.yaxis.set_label_position("right")
         ax2.tick_params(
@@ -257,7 +333,7 @@ def plot_mel(data, stats, titles):
             right=True,
             labelright=True,
         )
-
+    # plt.savefig('./test.png') 
     return fig
 
 

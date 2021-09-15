@@ -7,6 +7,8 @@ import argparse
 import yaml
 from preprocessor.preprocessor import Preprocessor
 import os
+import soundfile as sf
+import resampy
 
 
 def prepare_align(config):
@@ -32,7 +34,13 @@ def prepare_align(config):
             )
 
             os.makedirs(os.path.join(out_dir, speaker), exist_ok=True)
-            wav, _ = librosa.load(wav_path, sampling_rate)
+            # wav, _ = librosa.load(wav_path, sampling_rate)
+            wav, fs = sf.read(wav_path)
+            wav, _ = librosa.effects.trim(wav, top_db=60)
+            print("fs", fs)
+            print("sampling_rate",sampling_rate)
+            if fs != sampling_rate:
+                wav = resampy.resample(wav, fs, sampling_rate, axis=0)
             wav = wav / max(abs(wav)) * max_wav_value
             wavfile.write(
                 os.path.join(out_dir, speaker, "{}.wav".format(base_name)),
@@ -42,10 +50,10 @@ def prepare_align(config):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("config", type=str, help="path to preprocess.yaml")
+    parser.add_argument("--config", type=str, default="./config/VCTK/preprocess.yaml")
     args = parser.parse_args()
     config = yaml.load(open(args.config, "r"), Loader=yaml.FullLoader)
-    prepare_align(config)
+    # prepare_align(config)
 
     preprocessor = Preprocessor(config)
     preprocessor.build_from_path()

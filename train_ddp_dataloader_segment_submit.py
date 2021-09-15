@@ -20,7 +20,7 @@ from utils.dist import ompi_rank, ompi_size, ompi_local_rank, dist_init
 from utils.tools import print_rank
 from evaluate_dataloader_segment import evaluate
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 def is_parallel_model(model):
     if isinstance(model, torch.nn.DataParallel) or \
@@ -56,7 +56,9 @@ def main(args, configs, output_directory, log_directory):
             print('[Rank 0]: DistributedDataParallel PyTorch Method')
         torch.cuda.set_device(local_rank)
         device = torch.device("cuda", local_rank)
-        print(rank, local_rank, world_size, flush=True)    
+        print(rank, local_rank, world_size, flush=True)  
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
     if rank == 0:
         # print("Dynamic Loss Scaling:", hparams.dynamic_loss_scaling)
         print("Distributed Run:", train_config["ddp"]["distributed_run"])
@@ -237,19 +239,26 @@ def main(args, configs, output_directory, log_directory):
                     log(train_logger, step, losses=losses, learning_rate=learning_rate, lambda_kl=lambda_kl)
 
                 if step % synth_step == 0:
-                    wav_reconstruction, wav_prediction, tag = synth_one_sample(
+                    fig1, fig2, wav_reconstruction, wav_prediction, tag = synth_one_sample(
                         batch,
                         output,
                         vocoder,
                         model_config,
-                        preprocess_config
+                        preprocess_config,
+                        step
                     )
-                    # log(
-                    #     train_logger,
-                    #     # fig=fig,
-                    #     tag="Training/step_{}_{}".format(step, tag),
-                    #     learning_rate=learning_rate,
-                    # )
+                    log(
+                        train_logger,
+                        fig=fig1,
+                        tag="Training/step_{}_{}_direct_acoustic_model".format(step, tag),
+                        learning_rate=learning_rate,
+                    )
+                    log(
+                        train_logger,
+                        fig=fig2,
+                        tag="Training/step_{}_{}_extract_from_generated_vocoder".format(step, tag),
+                        learning_rate=learning_rate,
+                    )                    
                     sampling_rate = preprocess_config["preprocessing"]["audio"][
                         "sampling_rate"
                     ]

@@ -14,14 +14,14 @@ distributed="true"   # enable distributed training or not
 dist_method="torch"  # torch or horovod
 
 project_name="SPEECHDECOMPOSE"  # project name (e.g., tacotron/fastspeech)
-exp_name="CONTENT_STYLE_SPK_0914_VQ_KL_v1"    # experimental name (e.g., Evan/Guy/Jessa)
-
+exp_name="CONTENT_STYLE_SPK_0915_VQ_KL_PLOT_mel_energy_pitch_sampling_22050_vocoder_v0"    # experimental name (e.g., Evan/Guy/Jessa)
+# exp_name="CONTENT_STYLE_SPK_0914_VQ_KL_PLOT_mel_energy_pitch_but_mismatch_vocoder_scus2_v6"
 data_dir="/datablob"
 # if the packages not installed in the docker, you can install them here
 # extra_env_setup_cmd="pip install tensorflow-gpu==1.13.1 tensorboardX chainer librosa==0.8.0"
 # extra_env_setup_cmd="pip install tensorflow-gpu==1.15.0 chainer"
 # tensorflow-gpu==1.15.0
-extra_env_setup_cmd="pip install tensorflow-gpu joblib parallel_wavegan"
+extra_env_setup_cmd="pip install pyworld tensorflow-gpu joblib parallel_wavegan"
 extra_params="--distributed ${distributed}"
 extra_params=${extra_params}" --dist-method ${dist_method}"
 extra_params=${extra_params}" --data-dir ${data_dir}"
