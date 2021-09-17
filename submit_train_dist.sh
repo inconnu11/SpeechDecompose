@@ -8,13 +8,14 @@
 # cluster="v100-32gb-wus2-2"
 # num_gpu=8
 cluster="itp-v100-scus-2"
+# cluster="v100-16gb-scus"
 num_gpu=4
 vc="speech-itp-tts"        # speech-itp-tts, speech-itp-tts-prod, speech-itp-default
 distributed="true"   # enable distributed training or not
 dist_method="torch"  # torch or horovod
 
 project_name="SPEECHDECOMPOSE"  # project name (e.g., tacotron/fastspeech)
-exp_name="CONTENT_STYLE_SPK_0915_VQ_KL_PLOT_mel_energy_pitch_sampling_22050_vocoder_3mel_vanilla_v1"    # experimental name (e.g., Evan/Guy/Jessa)
+exp_name="CONTENT_STYLE_SPK_0917_VQ_KL_PLOT_mel_energy_pitch_sampling_22050_vocoder_top30_3mel_vanilla_itpv100_v4"    # experimental name (e.g., Evan/Guy/Jessa)
 # exp_name="CONTENT_STYLE_SPK_0914_VQ_KL_PLOT_mel_energy_pitch_but_mismatch_vocoder_scus2_v6"
 data_dir="/datablob"
 # if the packages not installed in the docker, you can install them here

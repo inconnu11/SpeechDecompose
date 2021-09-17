@@ -23,6 +23,8 @@ data:
   # vctk_spk_dvec_dir: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/wav16_downsample_trim_topdb30_d_vector_flatten/GE2E_spkEmbed_step_5805000/"  
   ########### azure blob storage path #############
   ######################################### 16k ################################################
+
+  ######################################### 22050 from 48k no trim ################################################
   ########### local GCR path #############
   # raw_path: "./raw_data/VCTK_22050"
   # train_fid_list: "./preprocessed_data/VCTK_22050/train.txt"
@@ -33,18 +35,42 @@ data:
   # preprocessed_path: "./preprocessed_data/VCTK_22050"
   # vctk_spk_dvec_dir: "/home/v-jiewang/data/VCTK-corpus/VCTK-Corpus/wav16_downsample_trim_topdb30_d_vector_flatten/GE2E_spkEmbed_step_5805000"
   ########### local GCR path #############
+  ########### azure blob storage path #############
+  # raw_path: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/raw_data/VCTK_22050"
+  # vctk_wav_dir: "/datablob/v-jiewang/Data/VCTK_raw_data/wav48/"  
+  # train_fid_list: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_22050/train.txt"
+  # validate_fid_list: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_22050/val.txt"
+  # test_fid_list: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_22050/test.txt"
+  # vctk_mel_dir : "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_22050/mel"
+  # preprocessed_path: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_22050"
+  # vctk_spk_dvec_dir: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/wav16_downsample_trim_topdb30_d_vector_flatten/GE2E_spkEmbed_step_5805000/"  
+  ########### azure blob storage path #############
+  ######################################### 22050 from 48k no trim ################################################
+
+  ######################################### 22050 trim topdb 30 ################################################
+  ########### local GCR path #############
+  # raw_path: "./raw_data/VCTK_22050_trim30"
+  # train_fid_list: "./preprocessed_data/VCTK_22050_trim30/train.txt"
+  # validate_fid_list: "./preprocessed_data/VCTK_22050_trim30/val.txt"
+  # test_fid_list: "./preprocessed_data/VCTK_22050_trim30/test.txt"
+  # vctk_wav_dir: "/home/v-jiewang/data/VCTK-corpus/VCTK-Corpus/wav48"
+  # vctk_mel_dir : "/home/v-jiewang/SpeechDecompose/preprocessed_data/VCTK_22050_trim30/mel"
+  # preprocessed_path: "./preprocessed_data/VCTK_22050_trim30"
+  # vctk_spk_dvec_dir: "/home/v-jiewang/data/VCTK-corpus/VCTK-Corpus/wav16_downsample_trim_topdb30_d_vector_flatten/GE2E_spkEmbed_step_5805000"
+  ########### local GCR path #############
 
   ########### azure blob storage path #############
-  raw_path: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/raw_data/VCTK_22050"
+  raw_path: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/raw_data/VCTK_22050_trim30"
   vctk_wav_dir: "/datablob/v-jiewang/Data/VCTK_raw_data/wav48/"  
-  train_fid_list: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_22050/train.txt"
-  validate_fid_list: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_22050/val.txt"
-  test_fid_list: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_22050/test.txt"
-  vctk_mel_dir : "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_22050/mel"
-  preprocessed_path: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_22050"
+  train_fid_list: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_22050_trim30/train.txt"
+  validate_fid_list: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_22050_trim30/val.txt"
+  test_fid_list: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_22050_trim30/test.txt"
+  vctk_mel_dir : "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_22050_trim30/mel"
+  preprocessed_path: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/preprocessed_data/VCTK_22050_trim30"
   vctk_spk_dvec_dir: "/datablob/v-jiewang/Data/features_VCTK/SpeechDecompose/wav16_downsample_trim_topdb30_d_vector_flatten/GE2E_spkEmbed_step_5805000/"  
   ########### azure blob storage path #############
-  ######################################### 22050 ################################################
+  ######################################### 22050 trim topdb 30  ################################################
+
   wav_file_ext: "wav"
   mel_file_ext: "npy"
   min_max_norm_mel: True

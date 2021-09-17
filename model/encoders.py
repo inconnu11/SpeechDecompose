@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+# import tsensor
 
     
 # RuntimeError: Given groups=1, weight of size 128 512 1, 
@@ -147,6 +148,7 @@ class ContentEncoder(nn.Module):
 
 
     def forward(self, x):
+        # with tsensor.clarify():
         # print("x shape", x.size()) # ([16, 406, 80])  
         x = x.transpose(1,2)
         out = conv_bank(x, self.conv_bank, act=self.act)
