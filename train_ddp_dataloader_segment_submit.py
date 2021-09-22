@@ -177,7 +177,8 @@ def main(args, configs, output_directory, log_directory):
             mel_content = mel
             mel_spk = mel
             mel_style = mel
-            batch = (mel_content, mel_spk, mel_style, speaker_embeddings, fid)
+            mel_autoencoder = mel
+            batch = (mel_content, mel_spk, mel_style, mel_autoencoder, speaker_embeddings, fid)
             ################# 3 mel input ###############
 
             # batch = [i.to(device) for i in batch]

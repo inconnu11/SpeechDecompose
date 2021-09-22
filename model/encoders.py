@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 # import tsensor
-
+from model.layers import ConvNorm
     
 # RuntimeError: Given groups=1, weight of size 128 512 1, 
 # expected input[16, 406, 80] to have 512 channels, but got 406 channels instead  
@@ -305,3 +305,46 @@ class StyleEncoder(nn.Module):
         # print("log_sigma shape", log_sigma.size()) ([16, 128]) 
         return out, mu, log_sigma        
         # return out
+
+
+
+class SpectrogramEncoder(nn.Module):
+    def __init__(self, preprocess_config, model_config):
+        super(SpectrogramEncoder, self).__init__()
+        self.dim_neck = model_config["SpectrogramEncoder"]["dim_neck"]
+        self.c_in = model_config["SpectrogramEncoder"]["c_in"]
+        convolutions = []
+        for i in range(3):
+            conv_layer = nn.Sequential(
+                ConvNorm(self.c_in,
+                            512,
+                            kernel_size=5, stride=1,
+                            padding=2,
+                            dilation=1, w_init_gain='relu'),
+                nn.BatchNorm1d(512))
+            convolutions.append(conv_layer)
+        self.convolutions = nn.ModuleList(convolutions)
+        
+        self.lstm = nn.LSTM(512, self.dim_neck, 2, batch_first=True, bidirectional=True)
+
+    def forward(self, x):
+        x = x.squeeze(1).transpose(2,1)
+        # print("after squeeze and transpose shape", x.size()) ([16, 512, 128])  
+        # c_org = c_org.unsqueeze(-1).expand(-1, -1, x.size(-1))
+        # x = torch.cat((x, c_org), dim=1)
+        
+        for conv in self.convolutions:
+            x = F.relu(conv(x))
+        x = x.transpose(1, 2)
+        
+        self.lstm.flatten_parameters()
+        outputs, _ = self.lstm(x)
+        # print("outputs shape", outputs.size())
+        # out_forward = outputs[:, :, :self.dim_neck]
+        # out_backward = outputs[:, :, self.dim_neck:]
+        # codes = []
+        # for i in range(0, outputs.size(1), self.freq):
+        #     codes.append(torch.cat((out_forward[:,i+self.freq-1,:],out_backward[:,i,:]), dim=-1))
+        return outputs
+      
+

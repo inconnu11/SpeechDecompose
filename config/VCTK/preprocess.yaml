@@ -91,6 +91,8 @@ preprocessing:
     mel_fmin: 0
     # mel_fmax: 8000 # please set to 8000 for HiFi-GAN vocoder, set to null for MelGAN vocoder
     mel_fmax: null
+  spk_emb:
+    pretrained: "./speaker_encoder/ckpt/pretrained_bak_5805000.pt"
   # pitch:
   #   feature: "phoneme_level" # support 'phoneme_level' or 'frame_level'
   #   normalization: True

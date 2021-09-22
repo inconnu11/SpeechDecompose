@@ -4,3 +4,7 @@
 event*
 *.txt
 *.tar
+third_party_new_0922/
+*.pt
+*.flac
+./Dataset

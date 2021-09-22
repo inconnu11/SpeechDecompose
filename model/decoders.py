@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 ################# adin vc https://github.com/jjery2243542/adaptive_voice_conversion   ###########
 from torch.nn.utils import spectral_norm
+from model.layers import ConvNorm, LinearNorm
 
 def get_act(act):
     if act == 'relu':
@@ -100,6 +101,56 @@ class Decoder(nn.Module):
         out = pad_layer(out, self.out_conv_layer)
         # print("out shape", out.size()) # ([16, 512, 408])  
         return out
+
+
+################# autovc   ###########   
+class SpectrogramDecoder(nn.Module):
+    def __init__(self, model_config):
+        super(SpectrogramDecoder, self).__init__()
+        self.dim_neck = model_config["SpectrogramDecoder"]["dim_neck"] * 2   # 1024 * 2
+        self.content_code = model_config["content_encoder"]["VQencoder"]["z_dim"]    # 128
+        self.style_code = model_config["style_encoder"]["c_out"]        # 128
+        self.spk_code = model_config["spks"]["spk_embed_dim"]           # 256
+        self.dim_pre = model_config["SpectrogramDecoder"]["dim_pre"]
+        # print(self.dim_neck, self.content_code, self.style_code,self.spk_code )
+        # print(" check type", self.dim_neck.type(), self.content_code.type(), self.style_code.type(), self.spk_code.type())
+        self.in_dim = self.dim_neck + self.content_code + self.style_code + self.spk_code
+        self.lstm1 = nn.LSTM(self.in_dim, self.dim_pre, 1, batch_first=True)
+        
+        convolutions = []
+        for i in range(3):
+            conv_layer = nn.Sequential(
+                ConvNorm(model_config["SpectrogramDecoder"]["dim_pre"],
+                         model_config["SpectrogramDecoder"]["dim_pre"],
+                         kernel_size=5, stride=1,
+                         padding=2,
+                         dilation=1, w_init_gain='relu'),
+                nn.BatchNorm1d(model_config["SpectrogramDecoder"]["dim_pre"]))
+            convolutions.append(conv_layer)
+        self.convolutions = nn.ModuleList(convolutions)
+        
+        self.lstm2 = nn.LSTM(model_config["SpectrogramDecoder"]["dim_pre"], 1024, 2, batch_first=True)
+        
+        self.linear_projection = LinearNorm(1024, 80)
+
+    def forward(self, x):
+        
+        #self.lstm1.flatten_parameters()
+        x, _ = self.lstm1(x)
+        x = x.transpose(1, 2)
+        
+        for conv in self.convolutions:
+            x = F.relu(conv(x))
+        x = x.transpose(1, 2)
+        
+        outputs, _ = self.lstm2(x)
+        
+        decoder_output = self.linear_projection(outputs)
+
+        return decoder_output           
+
+
+
     ########### adin ###########
     # def forward(self, z, cond):
     #     out = pad_layer(z, self.in_conv_layer)
@@ -229,4 +280,3 @@ class Decoder(nn.Module):
 
 
 #         return decoder_output, mel_masks
-################# autovc   ###########    

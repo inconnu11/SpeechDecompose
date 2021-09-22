@@ -38,8 +38,8 @@ def prepare_align(config):
             wav, fs = sf.read(wav_path)
             # wav, _ = librosa.effects.trim(wav, top_db=60)
             wav, _ = librosa.effects.trim(wav, top_db=30)
-            print("fs", fs)
-            print("sampling_rate",sampling_rate)
+            # print("fs", fs)
+            # print("sampling_rate",sampling_rate)
             if fs != sampling_rate:
                 wav = resampy.resample(wav, fs, sampling_rate, axis=0)
             wav = wav / max(abs(wav)) * max_wav_value

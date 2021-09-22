@@ -1,6 +1,9 @@
 max_seq_len: 1000
+
+
+#################### adin vc ######################
 content_encoder:
-  c_in: 80
+  c_in: 512
   c_h: 128
   c_out: 128
   kernel_size: 5
@@ -19,7 +22,7 @@ content_encoder:
         c_dim: 256
 
 style_encoder:
-  c_in: 80
+  c_in: 512
   c_h: 128
   c_out: 128
   kernel_size: 5
@@ -43,19 +46,34 @@ decoder:
   act: 'relu'
   sn: False
   dropout_rate: 0
+#################### adin vc ######################
 
 
-decoder_autovc:
-  frames_per_step: 1
-  dim_content: 64
-  dim_style: 32
+
+
+#################### transformer tts ###############
+DecoderPrenet:
+  dprenet_layers: 2
+  dropout_rate: 0.5
+  n_layers: 2
+  idim: 80
+  n_units: 256
+  dprenet_units: 256
+  adim: 512
+
+
+SpectrogramEncoder:
+  c_in: 512
+  dim_neck: 1024
+
+
+SpectrogramDecoder:
+  dim_neck: 1024
   dim_pre: 512
-  n_lstm_layers: 3
-  act: 'relu'
-  kernel_size: 5
-  stride: 1
-  padding: 2
-  dilation: 1
+
+
+#################### transformer tts ###############
+
 
 spks:
   multi_speaker: True
@@ -73,3 +91,16 @@ max_seq_len: 1000
 vocoder:
   model: "MelGAN" # support 'HiFi-GAN', 'MelGAN'
   speaker: "universal" # support  'LJSpeech', 'universal'
+
+
+# decoder_autovc:
+#   frames_per_step: 1
+#   dim_content: 64
+#   dim_style: 32
+#   dim_pre: 512
+#   n_lstm_layers: 3
+#   act: 'relu'
+#   kernel_size: 5
+#   stride: 1
+#   padding: 2
+#   dilation: 1

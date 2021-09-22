@@ -63,8 +63,9 @@ def evaluate(model, step, configs, logger=None, vocoder=None, learning_rate=None
         mel_content = mel
         mel_spk = mel
         mel_style = mel
-        batch = (mel_content, mel_spk, mel_style, speaker_embeddings, fid)
-         ################# 3 mel input ###############
+        mel_autoencoder = mel
+        batch = (mel_content, mel_spk, mel_style, mel_autoencoder, speaker_embeddings, fid)
+        ################# 3 mel input ###############
         with torch.no_grad():
             # Forward
             output = model(*(batch))
