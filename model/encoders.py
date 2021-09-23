@@ -189,32 +189,32 @@ class ContentEncoder(nn.Module):
         # log_sigma = pad_layer(out, self.std_layer)
         # return out, mu, log_sigma
 
-    def inference(self, x):
-        print("x shape", x.size())
-        x = x.transpose(1,2)        
-        out = conv_bank(x, self.conv_bank, act=self.act)
-        # dimension reduction layer
-        out = pad_layer(out, self.in_conv_layer)
-        out = self.norm_layer(out)
-        out = self.act(out)
-        out = self.dropout_layer(out)
-        # convolution blocks
-        for l in range(self.n_conv_blocks):
-            y = pad_layer(out, self.first_conv_layers[l])
-            y = self.norm_layer(y)
-            y = self.act(y)
-            y = self.dropout_layer(y)
-            y = pad_layer(y, self.second_conv_layers[l])
-            y = self.norm_layer(y)
-            y = self.act(y)
-            y = self.dropout_layer(y)
-            if self.subsample[l] > 1:
-                out = F.avg_pool1d(out, kernel_size=self.subsample[l], ceil_mode=True)
-            out = y + out
-        z_beforeVQ = out.transpose(1,2)
-        z, r, indices = self.codebook.inference(z_beforeVQ) # z: (bz, 128/2, 64)
-        c, _ = self.rnn(z) # (64, 140/2, 64) -> (64, 140/2, 256)
-        return z, c, z_beforeVQ, indices
+    # def inference(self, x):
+    #     print("x shape", x.size())
+    #     x = x.transpose(1,2)        
+    #     out = conv_bank(x, self.conv_bank, act=self.act)
+    #     # dimension reduction layer
+    #     out = pad_layer(out, self.in_conv_layer)
+    #     out = self.norm_layer(out)
+    #     out = self.act(out)
+    #     out = self.dropout_layer(out)
+    #     # convolution blocks
+    #     for l in range(self.n_conv_blocks):
+    #         y = pad_layer(out, self.first_conv_layers[l])
+    #         y = self.norm_layer(y)
+    #         y = self.act(y)
+    #         y = self.dropout_layer(y)
+    #         y = pad_layer(y, self.second_conv_layers[l])
+    #         y = self.norm_layer(y)
+    #         y = self.act(y)
+    #         y = self.dropout_layer(y)
+    #         if self.subsample[l] > 1:
+    #             out = F.avg_pool1d(out, kernel_size=self.subsample[l], ceil_mode=True)
+    #         out = y + out
+    #     z_beforeVQ = out.transpose(1,2)
+    #     z, r, indices = self.codebook.inference(z_beforeVQ) # z: (bz, 128/2, 64)
+    #     c, _ = self.rnn(z) # (64, 140/2, 64) -> (64, 140/2, 256)
+    #     return z, c, z_beforeVQ, indices
 
 
 

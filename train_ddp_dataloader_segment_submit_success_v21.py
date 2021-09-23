@@ -20,7 +20,7 @@ from utils.dist import ompi_rank, ompi_size, ompi_local_rank, dist_init
 from utils.tools import print_rank
 from evaluate_dataloader_segment import evaluate
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 def is_parallel_model(model):
     if isinstance(model, torch.nn.DataParallel) or \
@@ -29,36 +29,31 @@ def is_parallel_model(model):
     else:
         return False
 
-
-    # train_log_path = os.path.join(train_config["path"]["log_path"], "train")
-    # val_log_path = os.path.join(train_config["path"]["log_path"], "val")
-    # os.makedirs(train_log_path, exist_ok=True)
-    # os.makedirs(val_log_path, exist_ok=True)
-    # train_logger = SummaryWriter(train_log_path)
-    # val_logger = SummaryWriter(val_log_path)
-
 def prepare_directories_and_logger(output_directory, log_directory, rank):
     if rank == 0:
         if not os.path.isdir(output_directory):
             os.makedirs(output_directory)
             os.chmod(output_directory, 0o775)
-            train_log_path = os.path.join(log_directory, "train")
-            val_log_path = os.path.join(log_directory, "val")
-            if not os.path.isdir(train_log_path):
-                os.makedirs(train_log_path)
-            if not os.path.isdir(val_log_path):
-                os.makedirs(val_log_path)                
+        train_log_path = os.path.join(log_directory, "train")
+        val_log_path = os.path.join(log_directory, "val")
+        if not os.path.isdir(train_log_path):
+            os.makedirs(train_log_path)
+        if not os.path.isdir(val_log_path):
+            os.makedirs(val_log_path)                
         # logger = Tacotron2Logger(os.path.join(output_directory, log_directory))
         train_logger = SummaryWriter(train_log_path)
         val_logger = SummaryWriter(val_log_path)
     else:
-        logger = None
+        train_logger = None
+        val_logger = None
+        train_log_path = ''
+        val_log_path = ''
     # return logger
     return train_logger, val_logger, train_log_path, val_log_path
 
 
 # def main(args, configs, log_dir):
-def main(output_directory, log_directory, configs):
+def main(args, output_directory, log_directory, configs):
     preprocess_config, model_config, train_config = configs
 
     ############################# setting ddp #########################
@@ -84,7 +79,9 @@ def main(output_directory, log_directory, configs):
             print('[Rank 0]: DistributedDataParallel PyTorch Method')
         torch.cuda.set_device(local_rank)
         device = torch.device("cuda", local_rank)
-        print(rank, local_rank, world_size, flush=True)    
+        print(rank, local_rank, world_size, flush=True)  
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
     if rank == 0:
         # print("Dynamic Loss Scaling:", hparams.dynamic_loss_scaling)
         print("Distributed Run:", train_config["ddp"]["distributed_run"])
@@ -154,20 +151,18 @@ def main(output_directory, log_directory, configs):
     Loss = DisentangleLoss(preprocess_config, model_config, train_config).to(device)
     print("Number of SpeechDecompose Parameters:", num_param)
 
-    # Load vocoder
-    vocoder = get_vocoder(model_config, device)
-
     # Init logger
     for p in train_config["path"].values():
         os.makedirs(p, exist_ok=True)
     # train_log_path = os.path.join(train_config["path"]["log_path"], "train")
-    # val_log_path = os.path.join(train_config["path"]["log_path"], "val")
+    # val_log_path = os.path.join(train_config["path"]["log_path"], "val") log_directory
+    # train_log_path = os.path.join(log_directory, "train")
+    # val_log_path = os.path.join(log_directory, "val")    
     # os.makedirs(train_log_path, exist_ok=True)
     # os.makedirs(val_log_path, exist_ok=True)
     # train_logger = SummaryWriter(train_log_path)
     # val_logger = SummaryWriter(val_log_path)
     train_logger, val_logger, train_log_path, val_log_path = prepare_directories_and_logger(output_directory, log_directory, rank)
-
     # Training
     step = args.restore_step + 1
     epoch = 1
@@ -200,8 +195,14 @@ def main(output_directory, log_directory, configs):
             mel, speaker_embeddings, fid = batch
             mel = mel.to(device)
             speaker_embeddings = speaker_embeddings.to(device)
-            # fid = fid.to(device)
-            batch = (mel, speaker_embeddings, fid)
+            # batch = (mel, speaker_embeddings, fid)
+            ################# 3 mel input ###############
+            mel_content = mel
+            mel_spk = mel
+            mel_style = mel
+            mel_autoencoder = mel
+            batch = (mel_content, mel_spk, mel_style, mel_autoencoder, speaker_embeddings, fid)
+            ################# 3 mel input ###############
 
             # batch = [i.to(device) for i in batch]
             # for i in batch:
@@ -249,6 +250,8 @@ def main(output_directory, log_directory, configs):
             learning_rate = optimizer._get_lr_scale()
             # print("learning_rate", learning_rate)
             if (rank == 0):
+                # Load vocoder
+                vocoder = get_vocoder(model_config, device)
                 if step % log_step == 0:
                     losses = [l.item() for l in losses]
                     message1 = "Step {}/{}, ".format(step, total_step)
@@ -265,7 +268,7 @@ def main(output_directory, log_directory, configs):
                     log(train_logger, step, losses=losses, learning_rate=learning_rate, lambda_kl=lambda_kl)
 
                 if step % synth_step == 0:
-                    wav_reconstruction, wav_prediction, tag = synth_one_sample(
+                    fig1, fig2, wav_reconstruction, wav_prediction, tag = synth_one_sample(
                         batch,
                         output,
                         vocoder,
@@ -273,12 +276,18 @@ def main(output_directory, log_directory, configs):
                         preprocess_config,
                         step
                     )
-                    # log(
-                    #     train_logger,
-                    #     # fig=fig,
-                    #     tag="Training/step_{}_{}".format(step, tag),
-                    #     learning_rate=learning_rate,
-                    # )
+                    log(
+                        train_logger,
+                        fig=fig1,
+                        tag="Training/step_{}_{}_direct_acoustic_model".format(step, tag),
+                        learning_rate=learning_rate,
+                    )
+                    log(
+                        train_logger,
+                        fig=fig2,
+                        tag="Training/step_{}_{}_extract_from_generated_vocoder".format(step, tag),
+                        learning_rate=learning_rate,
+                    )                    
                     sampling_rate = preprocess_config["preprocessing"]["audio"][
                         "sampling_rate"
                     ]
@@ -313,7 +322,8 @@ def main(output_directory, log_directory, configs):
                             "optimizer": optimizer._optimizer.state_dict(),
                         },
                         os.path.join(
-                            train_config["path"]["ckpt_path"],
+                            # train_config["path"]["ckpt_path"],
+                            output_directory,
                             "{}.pth.tar".format(step),
                         ),
                     )
@@ -456,16 +466,20 @@ if __name__ == "__main__":
         "-p",
         "--preprocess_config",
         type=str,
-        required=True,
-        help="path to preprocess.yaml",
+        default='./config/VCTK/preprocess.yaml'
+    )
+    # parser.add_argument(
+    #     "-m", "--model_config", type=str, required=True, help="path to model.yaml"
+    # )
+    # parser.add_argument(
+    #     "-t", "--train_config", type=str, required=True, help="path to train.yaml"
+    # )
+    parser.add_argument(
+        "-m", "--model_config", type=str, default='./config/VCTK/model.yaml'
     )
     parser.add_argument(
-        "-m", "--model_config", type=str, required=True, help="path to model.yaml"
+        "-t", "--train_config", type=str, default='./config/VCTK/train.yaml'
     )
-    parser.add_argument(
-        "-t", "--train_config", type=str, required=True, help="path to train.yaml"
-    )
-
     ############# distributed ###############
     parser.add_argument('--model-dir',type=str, required=True,
                         help='directory to save checkpoints')
@@ -504,5 +518,6 @@ if __name__ == "__main__":
     train_config = yaml.load(open(args.train_config, "r"), Loader=yaml.FullLoader)
     configs = (preprocess_config, model_config, train_config)
 
+    # main(args, configs, args.model_dir, log_dir)
     # main(args, configs, log_dir)
-    main(args.model_dir, args.log_dir, configs)
+    main(args, args.model_dir, args.log_dir, configs)    

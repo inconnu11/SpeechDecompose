@@ -73,7 +73,7 @@ data:
 
   wav_file_ext: "wav"
   mel_file_ext: "npy"
-  min_max_norm_mel: True
+  min_max_norm_mel: False
   mel_min: -12.0
   mel_max: 2.5  
 

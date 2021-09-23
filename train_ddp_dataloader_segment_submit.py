@@ -129,8 +129,8 @@ def main(args, configs, output_directory, log_directory):
     print("Number of SpeechDecompose Parameters:", num_param)
 
     # Init logger
-    for p in train_config["path"].values():
-        os.makedirs(p, exist_ok=True)
+    # for p in train_config["path"].values():
+    #     os.makedirs(p, exist_ok=True)
     # train_log_path = os.path.join(train_config["path"]["log_path"], "train")
     # val_log_path = os.path.join(train_config["path"]["log_path"], "val") log_directory
     train_log_path = os.path.join(log_directory, "train")
@@ -172,6 +172,7 @@ def main(args, configs, output_directory, log_directory):
             mel, speaker_embeddings, fid = batch
             mel = mel.to(device)
             speaker_embeddings = speaker_embeddings.to(device)
+            # fid = fid.to(device)
             # batch = (mel, speaker_embeddings, fid)
             ################# 3 mel input ###############
             mel_content = mel

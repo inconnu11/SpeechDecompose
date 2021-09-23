@@ -72,10 +72,13 @@ class Decoder(nn.Module):
         self.out_conv_layer = f(nn.Conv1d(self.c_h, self.c_out, kernel_size=1))
         self.dropout_layer = nn.Dropout(p=self.dropout_rate)
 
+        # self.c_in_inference = model_config["decoder"]["c_in_inference"]
+        # self.in_conv_layer_inference = f(nn.Conv1d(self.c_in_inference, self.c_h, kernel_size=1))
+
     def forward(self, z):
         # print("z shape", z.size())    #([16, 51, 512])三者拼接
         z = z.transpose(1,2)
-        out = pad_layer(z, self.in_conv_layer)
+        out = pad_layer(z, self.in_conv_layer)        
         out = self.norm_layer(out)
         out = self.act(out)
         out = self.dropout_layer(out)
@@ -102,6 +105,35 @@ class Decoder(nn.Module):
         # print("out shape", out.size()) # ([16, 512, 408])  
         return out
 
+    # def inference(self, z):
+    #     # print("z shape", z.size())    #([16, 51, 512])三者拼接
+    #     z = z.transpose(1,2)
+    #     out = pad_layer(z, self.in_conv_layer_inference)
+    #     out = self.norm_layer(out)
+    #     out = self.act(out)
+    #     out = self.dropout_layer(out)
+    #     # convolution blocks
+    #     for l in range(self.n_conv_blocks):
+    #         y = pad_layer(out, self.first_conv_layers[l])
+    #         # y = self.norm_layer(y)
+    #         # y = append_cond(y, self.conv_affine_layers[l*2](cond))
+    #         y = self.act(y)
+    #         y = self.dropout_layer(y)
+    #         y = pad_layer(y, self.second_conv_layers[l])
+    #         if self.upsample[l] > 1:
+    #             y = pixel_shuffle_1d(y, scale_factor=self.upsample[l])
+    #         # y = self.norm_layer(y)
+    #         # y = append_cond(y, self.conv_affine_layers[l*2+1](cond))
+    #         y = self.act(y)
+    #         y = self.dropout_layer(y)
+    #         if self.upsample[l] > 1:
+    #             out = y + upsample(out, scale_factor=self.upsample[l]) 
+    #         else:
+    #             out = y + out
+    #     # print("out shape", out.size()) #([16, 128, 408])  
+    #     out = pad_layer(out, self.out_conv_layer)
+    #     # print("out shape", out.size()) # ([16, 512, 408])  
+    #     return out
 
 ################# autovc   ###########   
 class SpectrogramDecoder(nn.Module):
