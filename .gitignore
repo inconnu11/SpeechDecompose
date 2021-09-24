@@ -8,3 +8,5 @@ third_party_new_0922/
 *.pt
 *.flac
 ./Dataset
+*.pkl
+*.png

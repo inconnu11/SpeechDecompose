@@ -1,3 +1,4 @@
+from speaker_encoder.audio import preprocess_wav
 import os
 import json
 
@@ -153,7 +154,7 @@ class SpeechDecompose(nn.Module):
                 # print("style_embs", style_embs.shape)     # ([32, 128])   inference:([128])           
                 style_embs = torch.nn.functional.normalize(
                         style_embs).unsqueeze(1).expand(-1, T_down, -1)
-            print("style_embs shape", style_embs.shape)
+            # print("style_embs shape", style_embs.shape)
             x = torch.cat([x, style_embs], dim=2)
             # print("x shape", x.size())   ([16, 51, 512])  512 = 384(content 128 + spk 256) + 128 (style)
         ############### style encoder ############
@@ -185,6 +186,111 @@ class SpeechDecompose(nn.Module):
             log_sigma
         )
 
+    # def forward(self, mel = None, spembs = None, fid = None, styleembs = None):
+    def inference(self, mel_content = None, mel_spk = None, mel_style = None, mel_autoencoder = None, spembs = None, fid = None, styleembs = None ):
+        # print("mel size", mel.size())
+        # print("mel shape", mel.shape)  # [406, 80]
+        # T, _ = mel.size()
+        # prenet 返回 [16, 512, 128] 512是embedding，128是帧
+        mel_content_embedding = self.prenet_input_layer(mel_content)
+        mel_spk_embedding = self.prenet_input_layer(mel_spk)
+        mel_style_embedding = self.prenet_input_layer(mel_style)
+        mel_autoencoder_embedding = self.prenet_input_layer(mel_autoencoder)
+        # print("mel_content", mel_content.shape)
+        # print("mel_spk", mel_spk.shape)
+        # print("mel_style", mel_style.shape)
+        # print("mel_autoencoder", mel_autoencoder.shape)
+        # print("mel_content_embedding", mel_content_embedding.shape)
+        # print("mel_spk_embedding", mel_spk_embedding.shape)
+        # print("mel_style_embedding", mel_style_embedding.shape)
+        # print("mel_autoencoder_embedding", mel_autoencoder_embedding.shape)
+        ############### content encoder ############
+        B, T, _ = mel_content_embedding.size()  # [16, 406, 80]
+        z, c, z_beforeVQ, vq_loss, perplexity = self.encoder_content(mel_content_embedding)
+        content_embs = z    # (16, 51, 128)
+        T_down = content_embs.shape[1]
+        # print("T_down", T_down)
+        x = content_embs
+        ############### content encoder ############
+
+        ############### spk encoder ############
+        if self.multi_spk:
+            assert spembs is not None
+            # spk_embs = self.spk_embedding(torch.LongTensor([0,]*ppg.size(0)).to(ppg.device))
+            if not self.use_spk_dvec:
+                spk_embs = self.spk_embedding(spembs)
+                spk_embs = torch.nn.functional.normalize(
+                    spk_embs).unsqueeze(1).expand(-1, T_down, -1)
+            else:
+                # print("spk_embs shape", spembs.shape)  # ([32, 256])  [1,256]
+                spk_embs = torch.nn.functional.normalize(
+                    spembs).unsqueeze(1).expand(-1, T_down, -1)
+                    # 
+            # print("----------------------------verify speaker--------------------------------------")
+            # print("spk_embs shape", spk_embs.shape)  # ([32, 16, 256])  16 = 128/8
+            # print("spk emb", spk_embs)
+            x = torch.cat([content_embs, spk_embs], dim=2)   
+            # print("x shape", x.size())   # 384 = content 128 + spk 256
+            # Sizes of tensors must match except in dimension 2. 
+            # Got 406 and 51 in dimension 1 
+        ############### spk encoder ############
+
+
+        ############### style encoder ############
+        if self.multi_styles:
+            if styleembs is not None:
+                # print("styleembs is not None")
+                style_embs = self.style_embedding(styleembs)
+                style_embs = torch.nn.functional.normalize(
+                    style_embs).unsqueeze(1).expand(-1, T_down, -1)
+            else:
+                # print("styleembs is None")
+                # style_embs = self.encoder_style(mel)
+                out, mu, log_sigma  = self.encoder_style(mel_style_embedding)
+                eps = log_sigma.new(*log_sigma.size()).normal_(0, 1)
+                # style_embs = mu + torch.exp(log_sigma / 2) * eps  
+                style_embs = mu.unsqueeze(0)    #  ([1, 128])  
+                # print("style_embs", style_embs.shape)     
+                style_embs = torch.nn.functional.normalize(
+                        style_embs).unsqueeze(1).expand(-1, T_down, -1)
+            # print("style_embs shape", style_embs.shape)  # ([1, 51, 128]) 
+            x = torch.cat([x, style_embs], dim=2)
+            # print("x shape", x.size())   ([16, 51, 512])  512 = 384(content 128 + spk 256) + 128 (style)
+        ############### style encoder ############
+
+
+        ############### upsamle of encoders outputs and concat with autoencoder ############
+        x = self.decoder(x).transpose(1, 2)
+        # print("x", x.shape)
+        # print("mel_autoencoder_embedding", mel_autoencoder_embedding.shape)
+        y = self.encoder_spectrogram(mel_autoencoder_embedding)
+        # print("y", y.shape)
+        len_min = min(x.shape[1], y.shape[1])
+        # print("len_min", len_min)
+        x = x[:, :len_min, :]
+        y = y[:, :len_min, :]
+        y = torch.cat([y, x], dim = 2)
+        ############### upsamle of encoders outputs and concat with autoencoder ############
+
+
+        ############### decoder #############
+        output = self.decoder_spectrogram(y)
+        # output = self.decoder(x)
+        # print("decoder output shape ",output.size()) #([16, 512, 408])  
+        # output = self.mel_linear(output.transpose(1, 2))
+        # print("after mel_linear output shape",output.size()) #([16, 408, 80])  
+        ############### decoder #############
+
+
+        postnet_output = self.postnet(output) + output 
+        # print("postnet_output shape", postnet_output.size())  # ([16, 408, 80])   
+        return (
+            output,
+            postnet_output,
+            vq_loss,
+            mu,
+            log_sigma
+        )
 
     # # def forward(self, mel = None, spembs = None, fid = None, styleembs = None):
     # def inference(self, mel_content = None, mel_spk = None, mel_style = None, mel_autoencoder = None, spembs = None, fid = None, styleembs = None ):

@@ -7,6 +7,8 @@ preprocessed_data/
 output/
 raw_data/
 Dataset/
+*.ark
+*.scp
 *.wav
 *.npy
 *.pyc

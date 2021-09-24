@@ -127,7 +127,7 @@ def synth_one_sample(targets, predictions, vocoder, model_config, preprocess_con
     basename = targets[2][0]
     # print("basename", basename)
     mel_target = targets[0][0].detach().transpose(0, 1)
-    # print("mel_target", mel_target.size())   #(80, 128)           ?([128, 16, 80]) 
+    print("mel_target", mel_target.size())   #(80, 128)           ?([128, 16, 80]) 
     mel_prediction = predictions[0][0].detach().transpose(0, 1)
     # print("mel_prediction", mel_prediction.size())   #(80, 128)              ([128, 16, 80]) 
 
@@ -267,7 +267,7 @@ def synth_samples(targets, predictions, vocoder, model_config, preprocess_config
         wavfile.write(os.path.join(path, "{}.wav".format(basename)), sampling_rate, wav)
 
 def plot_mel(data, titles):
-    fig, axes = plt.subplots(len(data), 1, sharex=True, squeeze=False)
+    fig, axes = plt.subplots(len(data), 1, squeeze=False)
     if titles is None:
         titles = [None for i in range(len(data))]
 
@@ -284,7 +284,7 @@ def plot_mel(data, titles):
         axes[i][0].set_title(titles[i], fontsize="medium")
         axes[i][0].tick_params(labelsize="x-small", left=False, labelleft=False)
         axes[i][0].set_anchor("W")
-    # plt.savefig('./test.png') 
+    # plt.savefig('./inference.png') 
     return fig
 
 

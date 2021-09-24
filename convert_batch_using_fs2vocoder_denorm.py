@@ -1,3 +1,5 @@
+from speaker_encoder.audio import preprocess_wav
+from utils.tools import plot_mel
 import hydra
 import hydra.utils as utils
 
@@ -29,6 +31,7 @@ import yaml
 from speaker_encoder.voice_encoder import SpeakerEncoder
 from scipy.io import wavfile
 from utils.model import vocoder_infer
+from matplotlib import pyplot as plt
 ######################## adopted from VQMIVC(my modified version) #########################
 def select_wavs(paths, min_dur=2, max_dur=8):
     pp = []
@@ -48,6 +51,33 @@ def utt_make_frames(x):
     # print("out ", out.shape)
     # return out
     return x
+
+def bin_level_min_max_norm(melspec, preprocess_config):
+    # frequency bin level min-max normalization to [-4, 4]
+    print("[INFO] Min-Max normalize Melspec.")
+    print("melspec", melspec)
+    mel_min = preprocess_config["data"]["mel_min"]
+    mel_max = preprocess_config["data"]["mel_max"]
+    mel = (melspec - mel_min) / (mel_max - mel_min) * 8.0 - 4.0
+    print("np.clip(mel, -4., 4.) ", np.clip(mel, -4., 4.) )
+    return np.clip(mel, -4., 4.) 
+def denorm_bin_level_min_max(melspec, preprocess_config):
+    print("[INFO] Min-Max DeNormalize Melspec.")
+    print("melspec", melspec)
+    mel_min = preprocess_config["data"]["mel_min"]
+    mel_max = preprocess_config["data"]["mel_max"]
+    mel = (melspec + 4.0 ) / 8.0 * (mel_max - mel_min) + mel_min
+    print("mel", mel)
+    return mel
+
+# def length_check(mel, ref_mel):
+#     min_len = min(len(mel))
+# f0 = f0[:min_len]
+# ppg = ppg[:min_len]
+# mel = mel[:min_len]
+# return f0, ppg, mel
+
+
 def extract_mel_fs2_d_vector(wav_path, preprocess_config):
         # Read and trim wav files
         sampling_rate = preprocess_config["preprocessing"]["audio"]["sampling_rate"]
@@ -83,11 +113,13 @@ def extract_mel_fs2_d_vector(wav_path, preprocess_config):
 # def convert(cfg):
 def convert(args, configs):
     preprocess_config, model_config, train_config = configs
-    src_wav_paths = glob('./Dataset/VCTK-Corpus/wav48_silence_trimmed/p225/*mic1.flac') # modified to absolute wavs path, can select any unseen speakers
+    # src_wav_paths = glob('./Dataset/VCTK-Corpus/wav48_silence_trimmed/p225/*mic1.flac') # modified to absolute wavs path, can select any unseen speakers
+    # tar1_wav_paths = glob('./Dataset/VCTK-Corpus/wav48_silence_trimmed/p231/*mic1.flac') # can select any unseen speakers
+    # tar2_wav_paths = glob('./Dataset/VCTK-Corpus/wav48_silence_trimmed/p243/*mic1.flac') # can select any unseen speakers
+    src_wav_paths = glob('/home/v-jiewang/data/VCTK-corpus/VCTK-Corpus/wav48/p225/*.wav') # modified to absolute wavs path, can select any unseen speakers
+    tar1_wav_paths = glob('/home/v-jiewang/data/VCTK-corpus/VCTK-Corpus/wav48/p231/*.wav') # can select any unseen speakers
+    tar2_wav_paths = glob('/home/v-jiewang/data/VCTK-corpus/VCTK-Corpus/wav48/p243/*.wav') # can select any unseen speakers    
     src_wav_paths = select_wavs(src_wav_paths)
-    
-    tar1_wav_paths = glob('./Dataset/VCTK-Corpus/wav48_silence_trimmed/p231/*mic1.flac') # can select any unseen speakers
-    tar2_wav_paths = glob('./Dataset/VCTK-Corpus/wav48_silence_trimmed/p243/*mic1.flac') # can select any unseen speakers
     tar1_wav_paths = select_wavs(tar1_wav_paths)
     tar2_wav_paths = select_wavs(tar2_wav_paths)
     # print("tar1_wav_paths",tar1_wav_paths)
@@ -124,11 +156,12 @@ def convert(args, configs):
     vocoder = get_vocoder(model_config, device) 
     ############## get fs2 vocoder ###########   
     sampling_rate = preprocess_config["preprocessing"]["audio"]["sampling_rate"]
-    feat_writer = kaldiio.WriteHelper("ark,scp:{o}.ark,{o}.scp".format(o=str(out_dir)+'/feats.1'))
+    min_max_norm_mel = preprocess_config["data"]["min_max_norm_mel"]
+    # feat_writer = kaldiio.WriteHelper("ark,scp:{o}.ark,{o}.scp".format(o=str(out_dir)+'/feats.1'))
     for i, src_wav_path in tqdm(enumerate(src_wav_paths, 1)):
         if i>10:
             break
-        mel_origin, speaker_source = extract_mel_fs2_d_vector(src_wav_path, preprocess_config)
+        mel, speaker_source = extract_mel_fs2_d_vector(src_wav_path, preprocess_config)
         # print("mel shape", mel.shape)    #(80, 401)  
         # print("speaker_source", speaker_source)
         # print("speaker_source shape", np.array(speaker_source).shape) (256, )
@@ -139,10 +172,14 @@ def convert(args, configs):
         else:
             ref_wav_path = random.choice(tar1_wav_paths)
             tar = 'tarFemale_'
-        ref_mel_origin, speaker_target = extract_mel_fs2_d_vector(ref_wav_path, preprocess_config)
-
-
+        ref_mel, speaker_target = extract_mel_fs2_d_vector(ref_wav_path, preprocess_config)
         ######################### lsx min-max norm ####################
+        if min_max_norm_mel:
+            mel = bin_level_min_max_norm(mel, preprocess_config)
+            ref_mel = bin_level_min_max_norm(ref_mel, preprocess_config)
+        ######################### lsx min-max norm ####################
+
+        ######################### VQMIVC mean-std norm ####################
         # mel_stats = np.load('./preprocessed_data/VCTK_22050_trim30/mel_stats.npy')
         # mean = mel_stats[0]
         # std = mel_stats[1]
@@ -151,7 +188,7 @@ def convert(args, configs):
         # ref_mel_norm = (ref_mel_origin.T - mean) / (std + 1e-8)
         # mel = mel_norm.T
         # ref_mel = ref_mel_norm.T
-        ######################### lsx min-max norm ####################
+        ######################### VQMIVC mean-std norm ####################
 
         # print("orginal mel", torch.FloatTensor(mel_origin).size())   #([80, 401])  
         
@@ -160,10 +197,15 @@ def convert(args, configs):
         ############################## padding to 128 * #########################
         # mel = torch.FloatTensor(mel.T).unsqueeze(0).to(device)
         # ref_mel = torch.FloatTensor(ref_mel.T).unsqueeze(0).to(device)
-        mel = utt_make_frames(torch.FloatTensor(mel_origin)) 
-        # print("after utt_make_frames mel", mel.size())   #([80, 512]) 
-        ref_mel = utt_make_frames(torch.FloatTensor(ref_mel_origin))   
-        ############################## padding to 128 * #########################      
+        # mel, ref_mel = length_check(torch.FloatTensor(mel), torch.FloatTensor(ref_mel))
+        # mel = utt_make_frames(torch.FloatTensor(mel)) 
+        mel = torch.FloatTensor(mel)
+        # # # print("after utt_make_frames mel", mel.size())   #([80, 512]) 
+        # ref_mel = utt_make_frames(torch.FloatTensor(ref_mel)) 
+        ref_mel = torch.FloatTensor(ref_mel)  
+        ############################## padding to 128 * #########################   
+        # 
+        #    
         mel = torch.FloatTensor(mel.T).unsqueeze(0).to(device)   #(80, 401) -> (401, 80) -> (1, 401, 80)
         ref_mel = torch.FloatTensor(ref_mel.T).unsqueeze(0).to(device)  
  
@@ -175,6 +217,7 @@ def convert(args, configs):
         # print(speaker_target.shape)  #torch.Size([1, 256])
       
         out_filename = os.path.basename(src_wav_path).split('.')[0] 
+        print("out_filename", out_filename)
         # batch = (mel_content, mel_spk, mel_style, mel_autoencoder, speaker_embeddings, fid)
         batch_reconstruct = (mel, mel, mel, mel, speaker_source)
         batch_convert_spk = (mel, ref_mel, mel, mel, speaker_target)   # actually, the speaker is controlled by speaker embedding
@@ -191,12 +234,20 @@ def convert(args, configs):
             # output_reconstruct = model(*(batch_reconstruct))
             # output_convert_spk = model(*(batch_convert_spk))
             # output_convert_style = model(*(batch_convert_style))  
-            # print("output_reconstruct", output_reconstruct)      
-            # print("output_reconstruct", np.array(output_reconstruct).shape)   # (5,)    
+            # print("output_reconstruct", output_reconstruct)        
             # logmel = output.squeeze(0).cpu().numpy()
             # logmel_reconstruct = output_reconstruct.squeeze(0).cpu().numpy()
             # logmel_convert_spk = output_convert_spk.squeeze(0).cpu().numpy()
             # logmel_convert_style = output_convert_style.squeeze(0).cpu().numpy()
+            print("mel", mel.shape)
+            print("ref mel", ref_mel.shape)
+            print("output_reconstruct", output_reconstruct.shape)
+            print("post_output_reconstruct", post_output_reconstruct.shape)
+            print("output_convert_spk", output_convert_spk.shape)
+            print("post_output_convert_spk", post_output_convert_spk.shape)
+            print("output_convert_style", output_convert_style.shape)
+            print("post_output_convert_style", post_output_convert_style.shape)
+
 
             # feat_writer[out_filename+'_reconstruct'] = logmel_reconstruct
             # feat_writer[out_filename+'_convert_spk'] = logmel_convert_spk
@@ -209,7 +260,50 @@ def convert(args, configs):
             # print("mel.cpu().numpy().T", mel.cpu().numpy().T.shape)  # (1, 512, 80)  -> (80, 512, 1) 
             # print("mel.cpu().numpy().T", mel.cpu().numpy().T)
             # print("mel", mel.shape)
-
+            
+            ######################### lsx min-max norm ####################
+            if min_max_norm_mel:
+                mel = denorm_bin_level_min_max(mel, preprocess_config)
+                ref_mel = denorm_bin_level_min_max(ref_mel, preprocess_config)
+                # post_output_reconstruct = denorm_bin_level_min_max(post_output_reconstruct, preprocess_config)
+                # post_output_convert_spk = denorm_bin_level_min_max(post_output_convert_spk, preprocess_config)
+                # post_output_convert_style = denorm_bin_level_min_max(post_output_convert_style, preprocess_config)
+                # output_reconstruct = denorm_bin_level_min_max(output_reconstruct, preprocess_config)
+                # output_convert_spk = denorm_bin_level_min_max(output_convert_spk, preprocess_config)
+                # output_convert_style = denorm_bin_level_min_max(output_convert_style, preprocess_config)               
+            ######################### lsx min-max norm ####################
+            # plot_mel(
+            #     [
+            #         (mel.squeeze().cpu().numpy().T),
+            #         (ref_mel.squeeze().cpu().numpy().T),                                                      
+            #     ],
+            #     ["mel", "ref mel"],
+            # )
+            # plt.savefig(os.path.join(out_dir, "{}-gt.png".format(out_filename))) 
+            # plot_mel(
+            #     [
+            #         (output_reconstruct.squeeze().cpu().numpy().T),
+            #         (post_output_reconstruct.squeeze().cpu().numpy().T),                                                    
+            #     ],
+            #     [ "output_reconstruct", "post_output_reconstruct"],
+            # )
+            # plt.savefig(os.path.join(out_dir, "{}-reconstruct.png".format(out_filename))) 
+            # plot_mel(
+            #     [
+            #         (output_convert_spk.squeeze().cpu().numpy().T),
+            #         (post_output_convert_spk.squeeze().cpu().numpy().T),                                                        
+            #     ],
+            #     ["output_convert_spk", "post_output_convert_spk"],
+            # )
+            # plt.savefig(os.path.join(out_dir, "{}-convert_spk.png".format(out_filename))) 
+            # plot_mel(
+            #     [      
+            #         (output_convert_style.squeeze().cpu().numpy().T),
+            #         (post_output_convert_style.squeeze().cpu().numpy().T),                                                      
+            #     ],
+            #     [ "output_convert_style", "post_output_convert_style"],
+            # )            
+            # plt.savefig(os.path.join(out_dir, "{}-convert_style.png".format(out_filename)))
             ############################### input different shape mel ################################################################
             # print("mel", mel.shape)   # torch.Size([1, 512, 80])  
             # print("ref_mel", ref_mel.shape)  # torch.Size([1, 128, 80])
@@ -276,154 +370,23 @@ def convert(args, configs):
                 )[0]                                     
             else:
                 wav_reconstruction = wav_prediction = None
-            ################# [1, 80, frame] #################
 
-            ######################## input mel : (1, frame, 80)   ######################## 
-            # if vocoder is not None:
-            #     wav_src_gen = vocoder_infer(
-            #         mel,
-            #         vocoder,
-            #         model_config,
-            #         preprocess_config,
-            #     )[0]
-            #     wav_ref_gen = vocoder_infer(
-            #         ref_mel,
-            #         vocoder,
-            #         model_config,
-            #         preprocess_config,
-            #     )[0]  
-            #     ########################## postnet output #####################
-            #     postnet_wav_reconstruction = vocoder_infer(
-            #         post_output_reconstruct,
-            #         vocoder,
-            #         model_config,
-            #         preprocess_config,
-            #     )[0]
-            #     postnet_wav_convert_spk = vocoder_infer(
-            #         post_output_convert_spk,
-            #         vocoder,
-            #         model_config,
-            #         preprocess_config,
-            #     )[0]   
-            #     postnet_wav_convert_style = vocoder_infer(
-            #         post_output_convert_style,
-            #         vocoder,
-            #         model_config,
-            #         preprocess_config,
-            #     )[0] 
-            #     ########################## postnet output #####################
-
-            #     wav_reconstruction = vocoder_infer(
-            #         output_reconstruct,
-            #         vocoder,
-            #         model_config,
-            #         preprocess_config,
-            #     )[0]
-            #     wav_convert_spk = vocoder_infer(
-            #         output_convert_spk,
-            #         vocoder,
-            #         model_config,
-            #         preprocess_config,
-            #     )[0]   
-            #     wav_convert_style = vocoder_infer(
-            #         output_convert_style,
-            #         vocoder,
-            #         model_config,
-            #         preprocess_config,
-            #     )[0]                                     
-            # else:
-            #     wav_reconstruction = wav_prediction = None
-            ######################## input mel : (1, frame, 80)   ######################## 
-
-
-            ######################## input mel : (frame, 80) -> (1, frame, 80)   ######################## 
-            # if vocoder is not None:
-            #     wav_src_gen = vocoder_infer(
-            #         mel.unsqueeze(0),
-            #         vocoder,
-            #         model_config,
-            #         preprocess_config,
-            #     )[0]
-            #     wav_ref_gen = vocoder_infer(
-            #         ref_mel.unsqueeze(0),
-            #         vocoder,
-            #         model_config,
-            #         preprocess_config,
-            #     )[0]  
-            #     ########################## postnet output #####################
-            #     postnet_wav_reconstruction = vocoder_infer(
-            #         post_output_reconstruct.unsqueeze(0),
-            #         vocoder,
-            #         model_config,
-            #         preprocess_config,
-            #     )[0]
-            #     postnet_wav_convert_spk = vocoder_infer(
-            #         post_output_convert_spk.unsqueeze(0),
-            #         vocoder,
-            #         model_config,
-            #         preprocess_config,
-            #     )[0]   
-            #     postnet_wav_convert_style = vocoder_infer(
-            #         post_output_convert_style.unsqueeze(0),
-            #         vocoder,
-            #         model_config,
-            #         preprocess_config,
-            #     )[0] 
-            #     ########################## postnet output #####################
-
-            #     wav_reconstruction = vocoder_infer(
-            #         output_reconstruct.unsqueeze(0),
-            #         vocoder,
-            #         model_config,
-            #         preprocess_config,
-            #     )[0]
-            #     wav_convert_spk = vocoder_infer(
-            #         output_convert_spk.unsqueeze(0),
-            #         vocoder,
-            #         model_config,
-            #         preprocess_config,
-            #     )[0]   
-            #     wav_convert_style = vocoder_infer(
-            #         output_convert_style.unsqueeze(0),
-            #         vocoder,
-            #         model_config,
-            #         preprocess_config,
-            #     )[0]                                     
-            # else:
-            #     wav_reconstruction = wav_prediction = None
-            ######################## input mel : (frame, 80)   ######################## 
-            path = '/home/v-jiewang/SpeechDecompose/converted_results/autoencoder-5000-melgan-no-norm-fs2'
-            print("out_filename", out_filename)
-            wavfile.write(os.path.join(path, "{}_src_gen.wav".format(out_filename)), sampling_rate, wav_src_gen)
-            wavfile.write(os.path.join(path, "{}_ref_gen.wav".format(out_filename)), sampling_rate, wav_ref_gen)
+            # path = '/home/v-jiewang/SpeechDecompose/converted_results/autoencoder-100000-melgan-denorm-fs2'
+ 
+            wavfile.write(os.path.join(out_dir, "{}_src_gen.wav".format(out_filename)), sampling_rate, wav_src_gen)
+            wavfile.write(os.path.join(out_dir, "{}_ref_gen.wav".format(out_filename)), sampling_rate, wav_ref_gen)
+            ######################### postnet output #####################
+            wavfile.write(os.path.join(out_dir, "{}_reconstruct_postnet.wav".format(out_filename)), sampling_rate, postnet_wav_reconstruction)
+            wavfile.write(os.path.join(out_dir, "{}_convert_spk_postnet.wav".format(out_filename)), sampling_rate, postnet_wav_convert_spk)
+            wavfile.write(os.path.join(out_dir, "{}_convert_style_postnet.wav".format(out_filename)), sampling_rate, postnet_wav_convert_style)  
             ########################## postnet output #####################
-            wavfile.write(os.path.join(path, "{}_reconstruct_postnet.wav".format(out_filename)), sampling_rate, postnet_wav_reconstruction)
-            wavfile.write(os.path.join(path, "{}_convert_spk_postnet.wav".format(out_filename)), sampling_rate, postnet_wav_convert_spk)
-            wavfile.write(os.path.join(path, "{}_convert_style_postnet.wav".format(out_filename)), sampling_rate, postnet_wav_convert_style)  
-            ########################## postnet output #####################
-            wavfile.write(os.path.join(path, "{}_reconstruct.wav".format(out_filename)), sampling_rate, wav_reconstruction)
-            wavfile.write(os.path.join(path, "{}_convert_spk.wav".format(out_filename)), sampling_rate, wav_convert_spk)
-            wavfile.write(os.path.join(path, "{}_convert_style.wav".format(out_filename)), sampling_rate, wav_convert_style)        
+            wavfile.write(os.path.join(out_dir, "{}_reconstruct.wav".format(out_filename)), sampling_rate, wav_reconstruction)
+            wavfile.write(os.path.join(out_dir, "{}_convert_spk.wav".format(out_filename)), sampling_rate, wav_convert_spk)
+            wavfile.write(os.path.join(out_dir, "{}_convert_style.wav".format(out_filename)), sampling_rate, wav_convert_style)        
 
-    #         feat_writer[out_filename+'_src'] = mel.squeeze(0).cpu().numpy()   #(256, 80) 
-    #         # print("mel.squeeze(0).cpu().numpy().T", mel.squeeze(0).cpu().numpy().T.shape)   #(80, 256)   
-    #         feat_writer[out_filename+'_ref'] = ref_mel.squeeze(0).cpu().numpy()      
-    #     subprocess.call(['cp', src_wav_path, out_dir])
-    
-    # feat_writer.close()
-    # print('synthesize waveform...')
-    # cmd = ['parallel-wavegan-decode', '--checkpoint', \
-    #        './vocoder/checkpoint-3000000steps.pkl', \
-    #        '--feats-scp', f'{str(out_dir)}/feats.1.scp', '--outdir', str(out_dir)]
-    # subprocess.call(cmd)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    # parser.add_argument('--model_path', '-m', type=str, default="/home/v-jiewang/VQMIVC/VQMIVC-pretrained/checkpoints/useCSMITrue_useCPMITrue_usePSMITrue_useAmpTrue/VQMIVC-model.ckpt-500.pt")
-    # parser.add_argument('--model_config', type=str, default='./config/model/default.yaml')
-    # args = parser.parse_args()  
-    # model_config = yaml.load(open(args.model_config, "r"), Loader=yaml.FullLoader)
-  
+    parser = argparse.ArgumentParser()  
     # convert(args, model_config)
     parser.add_argument("--restore_step", type=int, default=0)
     parser.add_argument(
@@ -447,32 +410,4 @@ if __name__ == "__main__":
     configs = (preprocess_config, model_config, train_config)
   
     convert(args, configs)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
