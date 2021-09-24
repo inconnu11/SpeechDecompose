@@ -1,13 +1,13 @@
 Decompose speech into content, style and speaker
-# quick look
+## Quick look
 ## train
-(train_ddp_dataloader_segment_submit_success_v21.py)[https://github.com/inconnu11/SpeechDecompose/blob/master/train_ddp_dataloader_segment_submit_success_v21.py]
+[train_ddp_dataloader_segment_submit_success_v21.py](https://github.com/inconnu11/SpeechDecompose/blob/master/train_ddp_dataloader_segment_submit_success_v21.py)
 ## model
-(speechdecompose_dataloader_segment.py)[https://github.com/inconnu11/SpeechDecompose/blob/master/model/speechdecompose_dataloader_segment.py]
+[speechdecompose_dataloader_segment.py](https://github.com/inconnu11/SpeechDecompose/blob/master/model/speechdecompose_dataloader_segment.py)
 ## loss
-(loss_dataloader_segment.py)[https://github.com/inconnu11/SpeechDecompose/blob/master/model/loss_dataloader_segment.py]
+[loss_dataloader_segment.py](https://github.com/inconnu11/SpeechDecompose/blob/master/model/loss_dataloader_segment.py)
 ## inference
-(convert_batch_using_fs2vocoder_denorm.py)[https://github.com/inconnu11/SpeechDecompose/blob/master/convert_batch_using_fs2vocoder_denorm.py]
+[convert_batch_using_fs2vocoder_denorm.py](https://github.com/inconnu11/SpeechDecompose/blob/master/convert_batch_using_fs2vocoder_denorm.py)
 
 
 
