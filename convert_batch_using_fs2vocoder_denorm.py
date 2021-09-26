@@ -70,14 +70,6 @@ def denorm_bin_level_min_max(melspec, preprocess_config):
     print("mel", mel)
     return mel
 
-# def length_check(mel, ref_mel):
-#     min_len = min(len(mel))
-# f0 = f0[:min_len]
-# ppg = ppg[:min_len]
-# mel = mel[:min_len]
-# return f0, ppg, mel
-
-
 def extract_mel_fs2_d_vector(wav_path, preprocess_config):
         # Read and trim wav files
         sampling_rate = preprocess_config["preprocessing"]["audio"]["sampling_rate"]
@@ -89,7 +81,8 @@ def extract_mel_fs2_d_vector(wav_path, preprocess_config):
         # print("sampling_rate",sampling_rate)
         if fs != sampling_rate:
             wav = resampy.resample(wav, fs, sampling_rate, axis=0)
-        wav = wav / max(abs(wav)) * max_wav_value
+        # wav = wav / max(abs(wav)) * max_wav_value
+        wav = wav.astype(np.float32)
 
         # Compute mel-scale spectrogram and energy
         tacotron_stft = Audio.stft.TacotronSTFT(
@@ -102,6 +95,8 @@ def extract_mel_fs2_d_vector(wav_path, preprocess_config):
                 preprocess_config["preprocessing"]["mel"]["mel_fmax"],
             )        
         mel_spectrogram, energy = Audio.tools.get_mel_from_wav(wav, tacotron_stft)
+        # pp = wav_path.split('/')[-1]
+        # print("pp", pp)  #p225_062.wav
         # Compute d-vector speaker embedding
         weights_fpath = preprocess_config["preprocessing"]["spk_emb"]["pretrained"]
         encoder = SpeakerEncoder(weights_fpath)
@@ -203,9 +198,24 @@ def convert(args, configs):
         # # # print("after utt_make_frames mel", mel.size())   #([80, 512]) 
         # ref_mel = utt_make_frames(torch.FloatTensor(ref_mel)) 
         ref_mel = torch.FloatTensor(ref_mel)  
-        ############################## padding to 128 * #########################   
-        # 
-        #    
+        ############################## padding to 128 * #########################  
+        out_filename = os.path.basename(src_wav_path).split('.')[0] 
+        print("out_filename", out_filename)  
+        out_filename_ref = os.path.basename(ref_wav_path).split('.')[0] 
+        print("out_filename_ref", out_filename_ref)   
+
+
+        tacotron_stft = Audio.stft.TacotronSTFT(
+                preprocess_config["preprocessing"]["stft"]["filter_length"],
+                preprocess_config["preprocessing"]["stft"]["hop_length"],
+                preprocess_config["preprocessing"]["stft"]["win_length"],
+                preprocess_config["preprocessing"]["mel"]["n_mel_channels"],
+                preprocess_config["preprocessing"]["audio"]["sampling_rate"],
+                preprocess_config["preprocessing"]["mel"]["mel_fmin"],
+                preprocess_config["preprocessing"]["mel"]["mel_fmax"],
+            )            
+        Audio.tools.inv_mel_spec(mel=mel, out_filename='./converted_results/autoencoder-5000_GL/' + 'mel-' + out_filename + '.wav', _stft=tacotron_stft)
+        Audio.tools.inv_mel_spec(mel=ref_mel, out_filename='./converted_results/autoencoder-5000_GL/' + 'refmel-' + out_filename_ref + '.wav', _stft=tacotron_stft)
         mel = torch.FloatTensor(mel.T).unsqueeze(0).to(device)   #(80, 401) -> (401, 80) -> (1, 401, 80)
         ref_mel = torch.FloatTensor(ref_mel.T).unsqueeze(0).to(device)  
  
@@ -216,8 +226,6 @@ def convert(args, configs):
         speaker_target = torch.FloatTensor(speaker_target).unsqueeze(0).to(device) #(256, )->(1,256)
         # print(speaker_target.shape)  #torch.Size([1, 256])
       
-        out_filename = os.path.basename(src_wav_path).split('.')[0] 
-        print("out_filename", out_filename)
         # batch = (mel_content, mel_spk, mel_style, mel_autoencoder, speaker_embeddings, fid)
         batch_reconstruct = (mel, mel, mel, mel, speaker_source)
         batch_convert_spk = (mel, ref_mel, mel, mel, speaker_target)   # actually, the speaker is controlled by speaker embedding
@@ -272,38 +280,7 @@ def convert(args, configs):
                 # output_convert_spk = denorm_bin_level_min_max(output_convert_spk, preprocess_config)
                 # output_convert_style = denorm_bin_level_min_max(output_convert_style, preprocess_config)               
             ######################### lsx min-max norm ####################
-            # plot_mel(
-            #     [
-            #         (mel.squeeze().cpu().numpy().T),
-            #         (ref_mel.squeeze().cpu().numpy().T),                                                      
-            #     ],
-            #     ["mel", "ref mel"],
-            # )
-            # plt.savefig(os.path.join(out_dir, "{}-gt.png".format(out_filename))) 
-            # plot_mel(
-            #     [
-            #         (output_reconstruct.squeeze().cpu().numpy().T),
-            #         (post_output_reconstruct.squeeze().cpu().numpy().T),                                                    
-            #     ],
-            #     [ "output_reconstruct", "post_output_reconstruct"],
-            # )
-            # plt.savefig(os.path.join(out_dir, "{}-reconstruct.png".format(out_filename))) 
-            # plot_mel(
-            #     [
-            #         (output_convert_spk.squeeze().cpu().numpy().T),
-            #         (post_output_convert_spk.squeeze().cpu().numpy().T),                                                        
-            #     ],
-            #     ["output_convert_spk", "post_output_convert_spk"],
-            # )
-            # plt.savefig(os.path.join(out_dir, "{}-convert_spk.png".format(out_filename))) 
-            # plot_mel(
-            #     [      
-            #         (output_convert_style.squeeze().cpu().numpy().T),
-            #         (post_output_convert_style.squeeze().cpu().numpy().T),                                                      
-            #     ],
-            #     [ "output_convert_style", "post_output_convert_style"],
-            # )            
-            # plt.savefig(os.path.join(out_dir, "{}-convert_style.png".format(out_filename)))
+
             ############################### input different shape mel ################################################################
             # print("mel", mel.shape)   # torch.Size([1, 512, 80])  
             # print("ref_mel", ref_mel.shape)  # torch.Size([1, 128, 80])
